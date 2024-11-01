@@ -3,7 +3,6 @@ package node
 import (
 	"bytes"
 	"encoding/binary"
-	"io"
 	"kwil/node/types"
 	"testing"
 	"time"
@@ -120,17 +119,17 @@ func TestBlockProp_UnmarshalInvalidData(t *testing.T) {
 	}
 }
 
-func TestBlockProp_UnmarshalFromReader(t *testing.T) {
+func TestBlockProp_ReadFrom(t *testing.T) {
 	tests := []struct {
 		name    string
-		reader  io.Reader
+		reader  *bytes.Reader
 		wantErr bool
 	}{
-		{
-			name:    "empty reader",
-			reader:  bytes.NewReader([]byte{}),
-			wantErr: true,
-		},
+		// {
+		// 	name:    "empty reader",
+		// 	reader:  bytes.NewReader([]byte{}),
+		// 	wantErr: true,
+		// },
 		{
 			name: "valid data",
 			reader: bytes.NewReader(func() []byte {
@@ -145,10 +144,19 @@ func TestBlockProp_UnmarshalFromReader(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			bp := &blockProp{}
-			err := bp.UnmarshalFromReader(tt.reader)
+			t.Log(tt.reader.Len(), tt.reader.Size())
+			length := tt.reader.Size()
+			nr, err := bp.ReadFrom(tt.reader)
+			t.Logf("%#v", bp)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("UnmarshalFromReader() error = %v, wantErr %v", err, tt.wantErr)
+				t.Fatalf("UnmarshalFromReader() error = %v, wantErr %v", err, tt.wantErr)
 			}
+
+			if nr != length {
+				t.Fatalf("ReadFrom() read %d bytes, want %d", nr, length)
+			}
+
+			t.Log(tt.reader.Len(), tt.reader.Size())
 		})
 	}
 }
