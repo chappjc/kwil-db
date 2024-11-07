@@ -99,6 +99,16 @@ func (ce *ConsensusEngine) executeBlock() error {
 
 // Commit method commits the block to the blockstore and postgres database.
 // It also updates the txIndexer and mempool with the transactions in the block.
+//
+// concurrency, this method touches:
+//   - ce.state.blockProp... modify/read?
+//   - ce.state.blockRes... modify/read?
+//   - ce.state.appState write new AppHash after be.Commit
+//
+// potentially blocking actions/calls:
+//   - blockStore.Store/StoreResults
+//   - blockExecutor.Commit
+//   - mempool.Store (for remove)
 func (ce *ConsensusEngine) commit() error {
 	// TODO: Lock mempool and update the mempool to remove the transactions in the block
 	// Mempool should not receive any new transactions until this Commit is done as

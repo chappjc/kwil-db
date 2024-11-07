@@ -197,6 +197,18 @@ func (ce *ConsensusEngine) addVote(ctx context.Context, vote *vote, sender strin
 // Leaders will re-announce the blkProp and blkRes for every reannounceTimer interval
 // for the slow valdiators to catchup incase they missed the event.
 // Validators will peridically reannounce the votes to the leader.
+//
+// Data access and locking summary:
+//   - ce.state... modified if ...
+//   - ce.state... read for ...
+//   - ce.state.votes ... when ...
+//   - something something nextState()
+//   - in ce.commit() when at threshold, [see commit docs]
+//
+// Goroutine launches and other potentially blocking method calls:
+//   - at ack threshold, ce.commit()
+//   - at ack threshold, go ce.reAnnounce()
+//   - at ack threshold, in goroutine, wait to call ce.startNextRound()
 func (ce *ConsensusEngine) processVotes(ctx context.Context) error {
 	ce.log.Info("Processing votes", "height", ce.state.lc.height+1)
 
@@ -207,7 +219,7 @@ func (ce *ConsensusEngine) processVotes(ctx context.Context) error {
 
 	threshold := ce.requiredThreshold()
 	if len(ce.state.votes) < int(threshold) {
-		ce.log.Warn("Not enough votes received yet", "have", len(ce.state.votes), "need", threshold)
+		ce.log.Warn("Not enough votes received yet", "have", len(ce.state.votes), "need_at_least", threshold)
 		return nil
 	}
 
@@ -237,13 +249,16 @@ func (ce *ConsensusEngine) processVotes(ctx context.Context) error {
 
 		// start the next round
 		ce.nextState()
-		// Wait for the timeout to start the next round
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-time.After(ce.proposeTimeout):
-		}
-		go ce.startNewRound(ctx)
+
+		go func() { // must not sleep with ce.state mutex locked
+			// Wait for the timeout to start the next round
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(ce.proposeTimeout):
+			}
+			ce.startNewRound(ctx)
+		}()
 	} else if nacks >= threshold {
 		// halt the network
 		ce.log.Warnln("Majority of the validators have rejected the block, halting the network",
