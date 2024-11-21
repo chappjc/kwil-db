@@ -337,6 +337,7 @@ func TestDualNodeMocknet(t *testing.T) {
 }
 
 func TestStreamsBlockFetch(t *testing.T) {
+	// This test tests ProtocolIDBlock and ProtocolIDBlockHeight.
 	mn := mock.New()
 
 	pk1, h1, err := newTestHost(t, mn)
@@ -414,169 +415,131 @@ func TestStreamsBlockFetch(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
-	testCases := []struct {
-		name string
-		fn   func(t *testing.T)
-	}{
-		{
-			name: "request unknown hash manually",
-			fn: func(t *testing.T) {
-				// t.Parallel()
-				s, err := h2.NewStream(ctx, h1.ID(), ProtocolIDBlock)
-				if err != nil {
-					t.Fatalf("Failed create new stream: %v", err)
-				}
-				defer s.Close()
+	t.Run("request unknown hash manually", func(t *testing.T) {
+		s, err := h2.NewStream(ctx, h1.ID(), ProtocolIDBlock)
+		if err != nil {
+			t.Fatalf("Failed create new stream: %v", err)
+		}
+		defer s.Close()
 
-				unknownHash := types.Hash{1}
-				_, err = s.Write(unknownHash[:])
-				if err != nil {
-					t.Fatalf("Failed write to stream: %v", err)
-				}
+		unknownHash := types.Hash{1}
+		_, err = s.Write(unknownHash[:])
+		if err != nil {
+			t.Fatalf("Failed write to stream: %v", err)
+		}
 
-				// (*blockHashReq).ReadFrom should not hang, but should timeout (and error), and close stream on us
+		b, err := io.ReadAll(s)
+		if err != nil {
+			t.Errorf("ReadAll: %v", err)
+		} else if !bytes.Equal(b, noData) {
+			t.Error("expected a no-data response, got", b)
+		}
+	})
 
-				b, err := io.ReadAll(s) // expect EOF (no error)
-				if err != nil {
-					t.Errorf("ReadAll: %v", err)
-				} else if !bytes.Equal(b, noData) {
-					t.Error("expected a no-data response, got", b)
-				}
-			},
-		},
-		{
-			name: "request by hash using requestFrom, unknown block",
-			fn: func(t *testing.T) {
-				// t.Parallel()
-				unknownHash := types.Hash{1}
-				req, _ := blockHashReq{unknownHash}.MarshalBinary() // knownHash[:]
-				_, err := requestFrom(ctx, h2, h1.ID(), req, ProtocolIDBlock, 1e4)
-				if err == nil {
-					t.Errorf("expected error but got none")
-				} else if !errors.Is(err, ErrNotFound) {
-					t.Errorf("unexpected error: %v", err)
-				}
-			},
-		},
-		{
-			name: "request by hash manually, known",
-			fn: func(t *testing.T) {
-				// t.Parallel()
-				s, err := h2.NewStream(ctx, h1.ID(), ProtocolIDBlock)
-				if err != nil {
-					t.Fatalf("Failed create new stream: %v", err)
-				}
-				defer s.Close()
+	t.Run("request by hash using requestFrom, unknown block", func(t *testing.T) {
+		unknownHash := types.Hash{1}
+		req, _ := blockHashReq{unknownHash}.MarshalBinary()
+		_, err := requestFrom(ctx, h2, h1.ID(), req, ProtocolIDBlock, 1e4)
+		if err == nil {
+			t.Errorf("expected error but got none")
+		} else if !errors.Is(err, ErrNotFound) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
 
-				knownHash := blk1.Hash()
-				_, err = s.Write(knownHash[:])
-				if err != nil {
-					t.Fatalf("Failed write to stream: %v", err)
-				}
+	t.Run("request by hash manually, known", func(t *testing.T) {
+		s, err := h2.NewStream(ctx, h1.ID(), ProtocolIDBlock)
+		if err != nil {
+			t.Fatalf("Failed create new stream: %v", err)
+		}
+		defer s.Close()
 
-				// (*blockHashReq).ReadFrom should not hang, but should timeout (and error), and close stream on us
+		knownHash := blk1.Hash()
+		_, err = s.Write(knownHash[:])
+		if err != nil {
+			t.Fatalf("Failed write to stream: %v", err)
+		}
 
-				b, err := io.ReadAll(s) // expect EOF (no error)
-				if err != nil {
-					t.Errorf("ReadAll: %v", err)
-				} else if bytes.Equal(b, noData) {
-					t.Error("expected data, got", b)
-				}
-			},
-		},
-		{
-			name: "request by hash using requestFrom, known block",
-			fn: func(t *testing.T) {
-				// t.Parallel()
-				knownHash := blk1.Hash()
-				req, _ := blockHashReq{knownHash}.MarshalBinary() // knownHash[:]
-				resp, err := requestFrom(ctx, h2, h1.ID(), req, ProtocolIDBlock, 1e4)
-				if err != nil {
-					t.Errorf("ReadAll: %v", err)
-				} else if bytes.Equal(resp, noData) {
-					t.Error("expected data, got", resp)
-				}
-			},
-		},
-		{
-			name: "request by height manually, unknown",
-			fn: func(t *testing.T) {
-				// t.Parallel()
-				s, err := h2.NewStream(ctx, h1.ID(), ProtocolIDBlockHeight)
-				if err != nil {
-					t.Fatalf("Failed create new stream: %v", err)
-				}
-				defer s.Close()
+		b, err := io.ReadAll(s)
+		if err != nil {
+			t.Errorf("ReadAll: %v", err)
+		} else if bytes.Equal(b, noData) {
+			t.Error("expected data, got", b)
+		}
+	})
 
-				var height int64
-				err = binary.Write(s, binary.LittleEndian, height)
-				if err != nil {
-					t.Fatalf("Failed write to stream: %v", err)
-				}
+	t.Run("request by hash using requestFrom, known block", func(t *testing.T) {
+		knownHash := blk1.Hash()
+		req, _ := blockHashReq{knownHash}.MarshalBinary()
+		resp, err := requestFrom(ctx, h2, h1.ID(), req, ProtocolIDBlock, 1e4)
+		if err != nil {
+			t.Errorf("ReadAll: %v", err)
+		} else if bytes.Equal(resp, noData) {
+			t.Error("expected data, got", resp)
+		}
+	})
 
-				b, err := io.ReadAll(s)
-				if err != nil {
-					t.Errorf("ReadAll: %v", err)
-				} else if !bytes.Equal(b, noData) {
-					t.Error("expected a no-data response, got", b)
-				}
-			},
-		},
-		{
-			name: "request by height using requestFrom, unknown",
-			fn: func(t *testing.T) {
-				// t.Parallel()
-				var height int64
-				req, _ := blockHeightReq{height}.MarshalBinary()
-				_, err := requestFrom(ctx, h2, h1.ID(), req, ProtocolIDBlockHeight, 1e4)
-				if err == nil {
-					t.Errorf("expected error but got none")
-				} else if !errors.Is(err, ErrNotFound) {
-					t.Errorf("unexpected error: %v", err)
-				}
-			},
-		},
-		{
-			name: "request by height manually, known",
-			fn: func(t *testing.T) {
-				// t.Parallel()
-				s, err := h2.NewStream(ctx, h1.ID(), ProtocolIDBlockHeight)
-				if err != nil {
-					t.Fatalf("Failed create new stream: %v", err)
-				}
-				defer s.Close()
+	t.Run("request by height manually, unknown", func(t *testing.T) {
+		s, err := h2.NewStream(ctx, h1.ID(), ProtocolIDBlockHeight)
+		if err != nil {
+			t.Fatalf("Failed create new stream: %v", err)
+		}
+		defer s.Close()
 
-				var height int64 = 1
-				err = binary.Write(s, binary.LittleEndian, height)
-				if err != nil {
-					t.Fatalf("Failed write to stream: %v", err)
-				}
+		var height int64
+		err = binary.Write(s, binary.LittleEndian, height)
+		if err != nil {
+			t.Fatalf("Failed write to stream: %v", err)
+		}
 
-				b, err := io.ReadAll(s)
-				if err != nil {
-					t.Errorf("ReadAll: %v", err)
-				} else if bytes.Equal(b, noData) {
-					t.Error("expected a no-data response, got", b)
-				} // else { t.Log(len(b)) }
-			},
-		},
-		{
-			name: "request by height using requestFrom, known",
-			fn: func(t *testing.T) {
-				// t.Parallel()
-				var height int64 = 1
-				req, _ := blockHeightReq{height}.MarshalBinary()
-				resp, err := requestFrom(ctx, h2, h1.ID(), req, ProtocolIDBlockHeight, 1e4)
-				if err != nil {
-					t.Errorf("ReadAll: %v", err)
-				} else if bytes.Equal(resp, noData) {
-					t.Error("expected data, got", resp)
-				}
-			},
-		},
-	}
+		b, err := io.ReadAll(s)
+		if err != nil {
+			t.Errorf("ReadAll: %v", err)
+		} else if !bytes.Equal(b, noData) {
+			t.Error("expected a no-data response, got", b)
+		}
+	})
 
-	for _, tt := range testCases {
-		t.Run(tt.name, tt.fn)
-	}
+	t.Run("request by height using requestFrom, unknown", func(t *testing.T) {
+		var height int64
+		req, _ := blockHeightReq{height}.MarshalBinary()
+		_, err := requestFrom(ctx, h2, h1.ID(), req, ProtocolIDBlockHeight, 1e4)
+		if err == nil {
+			t.Errorf("expected error but got none")
+		} else if !errors.Is(err, ErrNotFound) {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("request by height manually, known", func(t *testing.T) {
+		s, err := h2.NewStream(ctx, h1.ID(), ProtocolIDBlockHeight)
+		if err != nil {
+			t.Fatalf("Failed create new stream: %v", err)
+		}
+		defer s.Close()
+
+		var height int64 = 1
+		err = binary.Write(s, binary.LittleEndian, height)
+		if err != nil {
+			t.Fatalf("Failed write to stream: %v", err)
+		}
+
+		b, err := io.ReadAll(s)
+		if err != nil {
+			t.Errorf("ReadAll: %v", err)
+		} else if bytes.Equal(b, noData) {
+			t.Error("expected a no-data response, got", b)
+		}
+	})
+
+	t.Run("request by height using requestFrom, known", func(t *testing.T) {
+		var height int64 = 1
+		req, _ := blockHeightReq{height}.MarshalBinary()
+		resp, err := requestFrom(ctx, h2, h1.ID(), req, ProtocolIDBlockHeight, 1e4)
+		if err != nil {
+			t.Errorf("ReadAll: %v", err)
+		} else if bytes.Equal(resp, noData) {
+			t.Error("expected data, got", resp)
+		}
+	})
 }

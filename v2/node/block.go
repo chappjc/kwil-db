@@ -70,7 +70,7 @@ func (n *Node) blkGetHeightStreamHandler(s network.Stream) {
 	}
 }
 
-func (n *Node) blkAnnStreamHandler(s network.Stream) {
+func (n *Node) blkAnnStreamHandler(s network.Stream) { // next: test this
 	defer s.Close()
 
 	s.SetDeadline(time.Now().Add(blkGetTimeout + annRespTimeout + annWriteTimeout)) // combined

@@ -484,6 +484,8 @@ func readBytes(r io.Reader) ([]byte, error) {
 		}
 	} else {
 		buf := &bytes.Buffer{}
+		const tooMuch = 1 << 29 // TODO: pass or set limit for the case when the reader cannot provide Length
+		r = io.LimitReader(r, tooMuch)
 		_, err := io.CopyN(buf, r, int64(length))
 		if err != nil {
 			return nil, fmt.Errorf("failed to read signature data: %w", err)
