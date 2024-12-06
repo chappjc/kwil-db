@@ -333,6 +333,9 @@ func (ce *ConsensusEngine) Start(ctx context.Context, proposerBroadcaster Propos
 
 	ce.log.Info("Starting the consensus engine")
 
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	// Fast catchup the node with the network height
 	if err := ce.catchup(ctx); err != nil {
 		return fmt.Errorf("error catching up: %w", err)
@@ -343,7 +346,12 @@ func (ce *ConsensusEngine) Start(ctx context.Context, proposerBroadcaster Propos
 
 	// start the event loop
 	ce.wg.Add(1)
-	go ce.runConsensusEventLoop(ctx)
+	go func() {
+		defer ce.wg.Done()
+		defer cancel() // stop CE in case event loop terminated early e.g. halt
+		ce.runConsensusEventLoop(ctx)
+		ce.log.Info("Consensus event loop stopped...")
+	}()
 
 	ce.wg.Wait()
 	ce.close()
@@ -425,11 +433,6 @@ func (ce *ConsensusEngine) GenesisInit(ctx context.Context) error {
 // Apart from the above events, the node also periodically checks if it needs to
 // catchup with the network and reannounce the messages.
 func (ce *ConsensusEngine) runConsensusEventLoop(ctx context.Context) error {
-	defer func() {
-		ce.log.Info("Consensus event loop stopped...")
-		ce.wg.Done()
-	}()
-
 	// TODO: make these configurable?
 	ce.log.Info("Starting the consensus event loop...")
 	catchUpTicker := time.NewTicker(5 * time.Second)
