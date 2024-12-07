@@ -112,7 +112,14 @@ func PreRunBindConfigFile(cmd *cobra.Command, args []string) error {
 }
 
 func PreRunBindFlags(cmd *cobra.Command, args []string) error {
-	flagSet := cmd.Flags()
+	return PreRunBindFlagset(cmd.PersistentFlags(), args)
+}
+
+func PreRunBindLocalFlags(cmd *cobra.Command, args []string) error {
+	return PreRunBindFlagset(cmd.Flags(), args)
+}
+
+func PreRunBindFlagset(flagSet *pflag.FlagSet, args []string) error {
 	err := k.Load(posflag.ProviderWithFlag(flagSet, ".", nil, /* <- k if we want defaults from the flags' defaults*/
 		func(f *pflag.Flag) (string, interface{}) {
 			// if !f.Changed { Debugf("not changed %v", f.Name) }

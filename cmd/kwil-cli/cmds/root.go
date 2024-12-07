@@ -53,7 +53,7 @@ func NewRootCmd() *cobra.Command {
 	config.BindConfigPath(rootCmd)
 
 	// Automatically define flags for all of the fields of the config struct.
-	config.SetFlags(rootCmd.Flags())
+	config.SetFlags(rootCmd.PersistentFlags())
 
 	helpers.BindAssumeYesFlag(rootCmd) // --assume-yes/-Y
 

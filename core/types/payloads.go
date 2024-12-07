@@ -29,9 +29,9 @@ type Payload interface {
 }
 
 const (
-	PayloadTypeKV PayloadType = "kv"
-	// PayloadTypeDeploySchema        PayloadType = "deploy_schema"
-	// PayloadTypeDropSchema          PayloadType = "drop_schema"
+	PayloadTypeKV                  PayloadType = "kv"
+	PayloadTypeDeploySchema        PayloadType = "deploy_schema"
+	PayloadTypeDropSchema          PayloadType = "drop_schema"
 	PayloadTypeExecute             PayloadType = "execute"
 	PayloadTypeTransfer            PayloadType = "transfer"
 	PayloadTypeValidatorJoin       PayloadType = "validator_join"
@@ -170,7 +170,6 @@ func (p *KVPayload) Type() PayloadType {
 	return PayloadTypeKV
 }
 
-/*
 // DropSchema is the payload that is used to drop a schema
 type DropSchema struct {
 	DBID string
@@ -189,7 +188,6 @@ func (s *DropSchema) UnmarshalBinary(b []byte) error {
 func (s *DropSchema) Type() PayloadType {
 	return PayloadTypeDropSchema
 }
-*/
 
 // ActionExecution is the payload that is used to execute an action
 type ActionExecution struct {
