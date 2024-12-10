@@ -18,16 +18,19 @@ import (
 	"reflect"
 	"runtime/debug"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/gorilla/websocket"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/kwilteam/kwil-db/core/log"
 	jsonrpc "github.com/kwilteam/kwil-db/core/rpc/json"
+	"github.com/kwilteam/kwil-db/core/rpc/ws"
 	"github.com/kwilteam/kwil-db/node/services/jsonrpc/openrpc"
 )
 
@@ -38,6 +41,7 @@ const (
 	pathSvcHealthV1 = pathHealthV1 + "/{svc}"
 
 	pathRPCV1  = "/rpc/v1"
+	pathWSV1   = pathRPCV1 + "/ws"
 	pathSpecV1 = "/spec/v1"
 )
 
@@ -59,6 +63,12 @@ type Server struct {
 	spec           json.RawMessage
 	authSHA        []byte
 	tlsCfg         *tls.Config
+
+	wsMtx      sync.RWMutex
+	wsSessions map[uint64]*wsSession
+	wsCounter  uint64 // unique internal client IDs
+
+	wg sync.WaitGroup
 
 	// UNSTABLE: this is not much more than a placeholder to ensure we can add
 	// our own metrics to the global prometheus metrics registry.
@@ -298,6 +308,11 @@ func NewServer(addr string, log log.Logger, opts ...Opt) (*Server, error) {
 	// h = recoverer(h, log) // first, wrap with defer and call next ^
 
 	mux.Handle(pathRPCV1, h) // do not add method! We need to handle OPTIONS for CORS, but only POST in JSON-RPC
+
+	var wsh http.Handler
+	wsh = http.HandlerFunc(s.handleWebsocketV1)
+	wsh = recoverer(wsh, log)
+	mux.Handle(pathWSV1, wsh)
 
 	// NOTE: for challenges at server level (above JSON-RPC methods):
 	// mux.Handle(pathRPCV1 + "/challenge", challengeHandler)
@@ -599,6 +614,14 @@ func (s *Server) ServeOn(ctx context.Context, ln net.Listener) error {
 		err = fmt.Errorf("http.Server.Shutdown: %v", err)
 	}
 
+	// cancel the hijacked connections in websocket sessions
+	s.wsMtx.Lock()
+	for id, sess := range s.wsSessions {
+		sess.cancel()
+		delete(s.wsSessions, id)
+	}
+	s.wsMtx.Lock()
+
 	wg.Wait()
 
 	s.log.Infof("JSON-RPC server shutdown complete")
@@ -728,14 +751,156 @@ func zeroID(id any) bool {
 	return false // already did rv.IsZero
 }
 
-// handleJSONRPCRequest sends the request to the correct handler function if able.
-func (s *Server) handleJSONRPCRequest(ctx context.Context, req *jsonrpc.Request) *jsonrpc.Response {
+var upgrader = &websocket.Upgrader{
+	HandshakeTimeout: 10 * time.Second,
+	// CheckOrigin: func(r *http.Request) bool { return true }, // allow all origins
+	CheckOrigin: func(r *http.Request) bool {
+		origin := r.Header["Origin"]
+		if len(origin) == 0 { // not a browser or client that cares
+			return true
+		}
+		// With Origin in header, allow if http.Request.Host matches.
+		u, err := url.Parse(origin[0])
+		if err != nil {
+			return false
+		}
+		return strings.EqualFold(u.Host, r.Host)
+	},
+}
+
+func (s *Server) handleWebsocketV1(w http.ResponseWriter, r *http.Request) {
+	ws, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		var hsErr websocket.HandshakeError
+		if !errors.As(err, &hsErr) {
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		} // else gorilla already replied
+		return
+	}
+
+	// server pings, clients pong
+	ws.SetPongHandler(func(string) error {
+		return ws.SetReadDeadline(time.Now().Add(wsReadTimeout))
+	})
+	ws.SetReadLimit(wsDefaultReadLimit)
+	ws.SetReadDeadline(time.Now().Add(wsReadTimeout))
+
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		s.websocketSession(ws)
+	}()
+}
+
+func (s *Server) websocketSession(conn *websocket.Conn) {
+	addr := conn.RemoteAddr().String()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	s.wsMtx.Lock()
+	s.wsCounter++
+	id := s.wsCounter
+	sess := &wsSession{
+		// id:     id,
+		conn:   conn,
+		cancel: cancel,
+		logger: s.log.New("WS[" + addr + "/" + strconv.FormatUint(id, 10) + "]"),
+	}
+	s.wsSessions[id] = sess
+	s.wsMtx.Unlock()
+
+	// when context canceled by any goroutine, close the connection.
+	context.AfterFunc(ctx, func() { sess.conn.Close() })
+
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go func() {
+		defer wg.Done()
+		sess.pinger(ctx)
+	}()
+	go func() {
+		defer wg.Done()
+		sess.reader(ctx, s.handleWsMessage)
+	}()
+	go func() {
+		defer wg.Done()
+		sess.writer(ctx)
+	}()
+
+	s.log.Infof("Websocket session started: %v", addr)
+
+	wg.Wait()
+	s.log.Infof("Websocket session complete: %v", addr)
+
+	s.wsMtx.Lock()
+	delete(s.wsSessions, id)
+	s.wsMtx.Unlock()
+}
+
+// handleWsMessage is the ws.Message handler for all client connections.
+// Presently this only accepts ws.MsgTypeReq (request) type messages, and the
+// payload must be a jsonrpc.Request. Any response is sent on the channel. This
+// method should be run as a goroutine to avoid blocking concurrent requests.
+func (s *Server) handleWsMessage(ctx context.Context, msg *ws.Message, respChan chan<- *ws.Message) {
+	sendResp := func(payload []byte) {
+		select {
+		case respChan <- &ws.Message{
+			ID:      msg.ID,         // same ID
+			Type:    ws.MsgTypeResp, // response message type
+			Payload: payload,        // marshalled jsonrpc.Response
+		}:
+		case <-ctx.Done():
+		}
+	}
+
+	switch msg.Type {
+	case ws.MsgTypeReq:
+		var jsonReq jsonrpc.Request
+		if err := json.Unmarshal(msg.Payload, &jsonReq); err != nil {
+			s.log.Warnf("invalid JSON RPC request: %v", err)
+			return
+		}
+		if rpcErr := validateJSONRPCRequest(&jsonReq); rpcErr != nil {
+			// send back a response with the err (send to the write channel)
+			out, _ := json.Marshal(jsonrpc.NewErrorResponse(jsonReq.ID, rpcErr))
+			sendResp(out)
+			return
+		}
+
+		res := s.handleJSONRPCRequest(ctx, &jsonReq)
+		out, _ := json.Marshal(res)
+		sendResp(out)
+
+	case ws.MsgTypeResp, ws.MsgTypeNtfn: // not expected for server to get responses at this time
+		fallthrough
+	default:
+		s.log.Warnf("Unhandled message type received: %v", msg.Type)
+	}
+}
+
+/*func (s *Server) handleJSONRPCRequestAsync(ctx context.Context, req *jsonrpc.Request) <-chan *jsonrpc.Response {
+	respChan := make(chan *jsonrpc.Response, 1)
+	go func() {
+		defer close(respChan)
+		respChan <- s.handleJSONRPCRequest(ctx, req)
+	}()
+
+	return respChan
+}*/
+
+func validateJSONRPCRequest(req *jsonrpc.Request) *jsonrpc.Error {
 	if req.JSONRPC != "2.0" || zeroID(req.ID) {
-		rpcErr := jsonrpc.NewError(jsonrpc.ErrorInvalidRequest, "invalid json-rpc request object", nil)
-		return jsonrpc.NewErrorResponse(req.ID, rpcErr)
+		return jsonrpc.NewError(jsonrpc.ErrorInvalidRequest, "invalid json-rpc request object", nil)
 	}
 	if req.Method == "" {
-		rpcErr := jsonrpc.NewError(jsonrpc.ErrorUnknownMethod, "no route was supplied", nil)
+		return jsonrpc.NewError(jsonrpc.ErrorUnknownMethod, "no route was supplied", nil)
+	}
+	return nil
+}
+
+// handleJSONRPCRequest sends the request to the correct handler function if able.
+func (s *Server) handleJSONRPCRequest(ctx context.Context, req *jsonrpc.Request) *jsonrpc.Response {
+	if rpcErr := validateJSONRPCRequest(req); rpcErr != nil {
 		return jsonrpc.NewErrorResponse(req.ID, rpcErr)
 	}
 
