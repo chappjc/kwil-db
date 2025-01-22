@@ -123,7 +123,7 @@ func NewDB(ctx context.Context, cfg *DBConfig) (*DB, error) {
 	}
 	logger.Infof("Connected to %v", pgVer) // Connected to PostgreSQL 16.1 (Ubuntu 16.1-1.pgdg22.04+1) on ...
 
-	major, minor, okVer := validateVersion(pgVerNum, verMajorRequired, verMinorRequired)
+	major, minor, okVer := validateVersion(pgVerNum, verMajorRequired, verMajorMax)
 	if !okVer {
 		return nil, fmt.Errorf("required PostgreSQL version not satisfied. Required %d.%d but connected to %d.%d",
 			verMajorRequired, verMinorRequired, major, minor)

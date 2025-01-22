@@ -30,7 +30,7 @@ func TestVersion(t *testing.T) {
 	}
 	t.Log(ver)
 
-	major, minor, ok := validateVersion(verNum, verMajorRequired, verMinorRequired)
+	major, minor, ok := validateVersion(verNum, verMajorRequired, verMajorMax)
 	if !ok {
 		t.Errorf("unsupported postgres version %d.%d", major, minor)
 	}

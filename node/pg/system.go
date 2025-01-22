@@ -32,13 +32,14 @@ const (
 // since any changes in behavior that are not expected and coordinated with an
 // upgrade can cause consensus failures.
 const (
+	verMajorMax      = 17
 	verMajorRequired = 16
 	verMinorRequired = 1
 )
 
-func validateVersion(pgVerNum uint32, reqMajor, reqMinor uint32) (major, minor uint32, ok bool) {
+func validateVersion(pgVerNum uint32, minMajor, maxMajor uint32) (major, minor uint32, ok bool) {
 	major, minor = pgVerNum/10_000, pgVerNum%10_000
-	if major != reqMajor || minor < reqMinor {
+	if major > maxMajor || major < minMajor {
 		return major, minor, false
 	}
 	return major, minor, true
