@@ -29,21 +29,21 @@ If no out file is given, it will simply print whether it was successful or not.`
 			if len(args) == 1 {
 				sql = args[0]
 				if in != "" {
-					return display.PrintErr(cmd, fmt.Errorf("cannot provide both a file and a string as an argument"))
+					return display.FormattedError(cmd, fmt.Errorf("cannot provide both a file and a string as an argument"))
 				}
 			} else {
 				if in == "" {
-					return display.PrintErr(cmd, fmt.Errorf("must provide either a file or a string as an argument"))
+					return display.FormattedError(cmd, fmt.Errorf("must provide either a file or a string as an argument"))
 				}
 
 				in, err := helpers.ExpandPath(in)
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 
 				file, err := os.ReadFile(in)
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 
 				sql = string(file)
@@ -51,7 +51,7 @@ If no out file is given, it will simply print whether it was successful or not.`
 
 			res, err := parse.ParseWithErrListener(sql)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			if out != "" {
@@ -64,12 +64,12 @@ If no out file is given, it will simply print whether it was successful or not.`
 
 				bts, err := json.MarshalIndent(res, "", "  ")
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 
 				full, err := writeToFile(out, bts)
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 
 				var msg string
@@ -82,7 +82,7 @@ If no out file is given, it will simply print whether it was successful or not.`
 			}
 
 			if res.ParseErrs.Err() != nil {
-				return display.PrintErr(cmd, res.ParseErrs.Err())
+				return display.FormattedError(cmd, res.ParseErrs.Err())
 			}
 
 			return display.PrintCmd(cmd, display.RespString("AST parsed successfully"))

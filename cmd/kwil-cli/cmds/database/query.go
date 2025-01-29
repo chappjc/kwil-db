@@ -38,14 +38,14 @@ func queryCmd() *cobra.Command {
 			return client.DialClient(cmd.Context(), cmd, client.WithoutPrivateKey,
 				func(ctx context.Context, client clientType.Client, conf *config.KwilCliConfig) error {
 					if len(args) == 0 {
-						return display.PrintErr(cmd, fmt.Errorf("no query provided"))
+						return display.FormattedError(cmd, fmt.Errorf("no query provided"))
 					}
 
 					params := make(map[string]any)
 					if len(args) > 1 {
 						ins, err := parseInputs(args[1:])
 						if err != nil {
-							return display.PrintErr(cmd, fmt.Errorf("error parsing inputs: %w", err))
+							return display.FormattedError(cmd, fmt.Errorf("error parsing inputs: %w", err))
 						}
 
 						for k, v := range ins {
@@ -55,7 +55,7 @@ func queryCmd() *cobra.Command {
 
 					data, err := client.Query(ctx, args[0], params)
 					if err != nil {
-						return display.PrintErr(cmd, fmt.Errorf("error querying database: %w", err))
+						return display.FormattedError(cmd, fmt.Errorf("error querying database: %w", err))
 					}
 
 					resp := &respRelations{

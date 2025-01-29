@@ -27,12 +27,12 @@ func peersCmd() *cobra.Command {
 			ctx := context.Background()
 			client, err := AdminSvcClient(ctx, cmd)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			peers, err := client.Peers(ctx)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			return display.PrintCmd(cmd, &peersMsg{peers: peers})

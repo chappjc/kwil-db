@@ -36,11 +36,11 @@ func proposeUpdatesCmd() *cobra.Command {
 			ctx := cmd.Context()
 			clt, err := rpc.AdminSvcClient(ctx, cmd)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			if description == "" {
-				return display.PrintErr(cmd, errors.New("description must not be empty"))
+				return display.FormattedError(cmd, errors.New("description must not be empty"))
 			}
 
 			var updates types.ParamUpdates
@@ -48,19 +48,19 @@ func proposeUpdatesCmd() *cobra.Command {
 			dec.UseNumber()
 			err = dec.Decode(&updates)
 			if err != nil {
-				return display.PrintErr(cmd, fmt.Errorf("bad updates json: %w", err))
+				return display.FormattedError(cmd, fmt.Errorf("bad updates json: %w", err))
 			}
 			for param, val := range updates {
 				if num, is := val.(json.Number); is {
 					intNum, err := num.Int64()
 					if err != nil {
-						return display.PrintErr(cmd, fmt.Errorf("invalid number for %s: %w", param, err))
+						return display.FormattedError(cmd, fmt.Errorf("invalid number for %s: %w", param, err))
 					}
 					updates[param] = intNum
 				}
 			}
 			if err = types.ValidateUpdates(updates); err != nil {
-				return display.PrintErr(cmd, fmt.Errorf("invalid updates: %w", err))
+				return display.FormattedError(cmd, fmt.Errorf("invalid updates: %w", err))
 			}
 
 			proposal := consensus.ParamUpdatesDeclaration{
@@ -70,18 +70,18 @@ func proposeUpdatesCmd() *cobra.Command {
 
 			if !yes {
 				if err = promptConfirmUpdatesProposal(proposal); err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 			}
 
 			proposalBts, err := proposal.MarshalBinary()
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			txHash, err := clt.CreateResolution(ctx, proposalBts, consensus.ParamUpdatesResolutionType)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			id := types.VotableEventID(consensus.ParamUpdatesResolutionType, proposalBts)

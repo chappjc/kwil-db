@@ -63,24 +63,24 @@ func executeCmd() *cobra.Command {
 
 				namespace, wasSet, err := getSelectedNamespace(cmd)
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("error getting selected namespace from CLI flags: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("error getting selected namespace from CLI flags: %w", err))
 				}
 
 				// if sql is not changed, then it is an action
 				if !cmd.Flags().Changed("sql") && !cmd.Flags().Changed("sql-file") {
 					action, args, err := getSelectedAction(cmd, args)
 					if err != nil {
-						return display.PrintErr(cmd, fmt.Errorf("error getting selected action: %w", err))
+						return display.FormattedError(cmd, fmt.Errorf("error getting selected action: %w", err))
 					}
 
 					parsedArgs, err := parseInputs(args)
 					if err != nil {
-						return display.PrintErr(cmd, fmt.Errorf("error parsing inputs: %w", err))
+						return display.FormattedError(cmd, fmt.Errorf("error parsing inputs: %w", err))
 					}
 
 					inputs, err := buildExecutionInputs(ctx, cl, namespace, action, []map[string]string{parsedArgs})
 					if err != nil {
-						return display.PrintErr(cmd, fmt.Errorf("error getting inputs: %w", err))
+						return display.FormattedError(cmd, fmt.Errorf("error getting inputs: %w", err))
 					}
 
 					// Could actually just directly pass nonce to the client method,
@@ -88,14 +88,14 @@ func executeCmd() *cobra.Command {
 					txHash, err := cl.Execute(ctx, namespace, action, inputs,
 						clientType.WithNonce(nonceOverride), clientType.WithSyncBroadcast(syncBcast))
 					if err != nil {
-						return display.PrintErr(cmd, fmt.Errorf("error executing database: %w", err))
+						return display.FormattedError(cmd, fmt.Errorf("error executing database: %w", err))
 					}
 					// If sycnBcast, and we have a txHash (error or not), do a query-tx.
 					if len(txHash) != 0 && syncBcast {
 						time.Sleep(500 * time.Millisecond) // otherwise it says not found at first
 						resp, err := cl.TxQuery(ctx, txHash)
 						if err != nil {
-							return display.PrintErr(cmd, fmt.Errorf("tx query failed: %w", err))
+							return display.FormattedError(cmd, fmt.Errorf("tx query failed: %w", err))
 						}
 						return display.PrintCmd(cmd, display.NewTxHashAndExecResponse(resp))
 					}
@@ -103,25 +103,25 @@ func executeCmd() *cobra.Command {
 				}
 
 				if actionFlagSet(cmd) {
-					return display.PrintErr(cmd, fmt.Errorf("cannot specify both (--sql or --sql-file) and --action"))
+					return display.FormattedError(cmd, fmt.Errorf("cannot specify both (--sql or --sql-file) and --action"))
 				}
 
 				if sqlStmt == "" && sqlFilepath == "" {
-					return display.PrintErr(cmd, fmt.Errorf("either --sql or --sql-file must be set"))
+					return display.FormattedError(cmd, fmt.Errorf("either --sql or --sql-file must be set"))
 				}
 				if sqlStmt != "" && sqlFilepath != "" {
-					return display.PrintErr(cmd, fmt.Errorf("cannot specify both --sql and --sql-file"))
+					return display.FormattedError(cmd, fmt.Errorf("cannot specify both --sql and --sql-file"))
 				}
 				var stmt string
 				if sqlFilepath != "" {
 					expanded, err := helpers.ExpandPath(sqlFilepath)
 					if err != nil {
-						return display.PrintErr(cmd, fmt.Errorf("error expanding path: %w", err))
+						return display.FormattedError(cmd, fmt.Errorf("error expanding path: %w", err))
 					}
 
 					file, err := os.ReadFile(expanded)
 					if err != nil {
-						return display.PrintErr(cmd, fmt.Errorf("error reading file: %w", err))
+						return display.FormattedError(cmd, fmt.Errorf("error reading file: %w", err))
 					}
 					stmt = string(file)
 				} else {
@@ -133,14 +133,14 @@ func executeCmd() *cobra.Command {
 				// if the namespace is set, we should prepend it to the statement
 				if wasSet {
 					if strings.HasPrefix(stmt, "{") {
-						return display.PrintErr(cmd, fmt.Errorf("cannot specify both --namespace and a statement with a {namespace} prefix"))
+						return display.FormattedError(cmd, fmt.Errorf("cannot specify both --namespace and a statement with a {namespace} prefix"))
 					}
 					stmt = fmt.Sprintf("{%s}%s", namespace, stmt)
 				}
 
 				parsed, err := parseInputs(args)
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("error parsing inputs: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("error parsing inputs: %w", err))
 				}
 
 				args := make(map[string]interface{}, len(parsed))
@@ -151,14 +151,14 @@ func executeCmd() *cobra.Command {
 				// If we're here, we're executing a SQL statement.
 				txHash, err := cl.ExecuteSQL(ctx, stmt, args, clientType.WithNonce(nonceOverride), clientType.WithSyncBroadcast(syncBcast))
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("error executing SQL statement: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("error executing SQL statement: %w", err))
 				}
 				// If sycnBcast, and we have a txHash (error or not), do a query-tx.
 				if len(txHash) != 0 && syncBcast {
 					time.Sleep(500 * time.Millisecond) // otherwise it says not found at first
 					resp, err := cl.TxQuery(ctx, txHash)
 					if err != nil {
-						return display.PrintErr(cmd, fmt.Errorf("tx query failed: %w", err))
+						return display.FormattedError(cmd, fmt.Errorf("tx query failed: %w", err))
 					}
 					return display.PrintCmd(cmd, display.NewTxHashAndExecResponse(resp))
 				}

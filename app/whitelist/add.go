@@ -21,12 +21,12 @@ func addCmd() *cobra.Command {
 			ctx := context.Background()
 			client, err := rpc.AdminSvcClient(ctx, cmd)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			err = client.AddPeer(ctx, args[0])
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			return display.PrintCmd(cmd, &addMsg{peerID: args[0]})

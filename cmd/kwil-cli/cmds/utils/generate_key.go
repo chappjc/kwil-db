@@ -33,20 +33,20 @@ func generateKeyCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pk, pubKey, err := crypto.GenerateSecp256k1Key(nil)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 			pubKeyBts := pubKey.Bytes()
 
 			pubKeyHex := hex.EncodeToString(pubKeyBts)
 			address, err := auth.EthSecp256k1Authenticator{}.Identifier(auth.GetUserSigner(pk).CompactID())
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			if out != "" {
 				full, err := writeToFile(out, []byte(hex.EncodeToString(pk.Bytes())+"\n"))
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 
 				res := privateKeyFileRes{

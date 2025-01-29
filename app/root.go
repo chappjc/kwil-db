@@ -41,14 +41,13 @@ func RootCmd() *cobra.Command {
 		Short:             custom.BinaryConfig.ProjectName + " daemon",
 		Long:              custom.BinaryConfig.ProjectName + " node and utilities",
 		DisableAutoGenTag: true,
-		// SilenceErrors:     true, // we display them ourselves
+		// SilenceErrors hides command syntax errors too, which is not desired.
 		SilenceUsage: true,
 		CompletionOptions: cobra.CompletionOptions{
 			DisableDefaultCmd: true,
 		},
 		Version: version.KwilVersion,
 		Example: custom.BinaryConfig.NodeCmd + " -r ~/.kwild",
-		// PersistentPreRunE so k has all the settings in all (sub)command's RunE funcs
 		PersistentPreRunE: bind.ChainPreRuns(bind.MaybeEnableCLIDebug, conf.PreRunBindConfigFileStrict[config.Config],
 			conf.PreRunBindFlags, conf.PreRunBindEnvMatching, conf.PreRunPrintEffectiveConfig),
 	}

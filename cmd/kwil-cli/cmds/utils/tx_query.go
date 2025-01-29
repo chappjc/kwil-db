@@ -27,12 +27,12 @@ func txQueryCmd() *cobra.Command {
 			return client.DialClient(cmd.Context(), cmd, client.WithoutPrivateKey, func(ctx context.Context, client clientType.Client, conf *config.KwilCliConfig) error {
 				txHash, err := types.NewHashFromString(args[0])
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("error decoding transaction id: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("error decoding transaction id: %w", err))
 				}
 
 				msg, err := client.TxQuery(ctx, txHash)
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("error querying transaction: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("error querying transaction: %w", err))
 				}
 
 				if full {

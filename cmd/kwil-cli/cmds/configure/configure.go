@@ -31,13 +31,13 @@ func NewCmdConfigure() *cobra.Command {
 		Example: configureExample,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if display.ShouldSilence(cmd) {
-				return display.PrintErr(cmd, errors.New("cannot configure run in silence mode"))
+				return display.FormattedError(cmd, errors.New("cannot configure run in silence mode"))
 			}
 
 			// config.LoadPersistedConfig() => just the config file
 			conf, err := config.ActiveConfig() // considering merged config including flags and env
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			err = runErrs(conf,
@@ -46,7 +46,7 @@ func NewCmdConfigure() *cobra.Command {
 				promptPrivateKey,
 			)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			return config.PersistConfig(conf)

@@ -29,7 +29,7 @@ func transferCmd() *cobra.Command {
 			recipient, amt := args[0], args[1]
 			amount, ok := big.NewInt(0).SetString(amt, 10)
 			if !ok {
-				return display.PrintErr(cmd, errors.New("invalid decimal amount"))
+				return display.FormattedError(cmd, errors.New("invalid decimal amount"))
 			}
 
 			// Recognize 0x prefix to permit ethereum address format rather
@@ -37,7 +37,7 @@ func transferCmd() *cobra.Command {
 			recipient = strings.TrimPrefix(recipient, "0x")
 			id, err := hex.DecodeString(recipient)
 			if err != nil {
-				return display.PrintErr(cmd, fmt.Errorf("failed to decode account ID: %w", err))
+				return display.FormattedError(cmd, fmt.Errorf("failed to decode account ID: %w", err))
 			}
 
 			// NOTE: could validate on client side first if built with extensions:
@@ -53,14 +53,14 @@ func transferCmd() *cobra.Command {
 				txHash, err := cl.Transfer(ctx, to, amount, clientType.WithNonce(nonceOverride),
 					clientType.WithSyncBroadcast(syncBcast))
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("transfer failed: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("transfer failed: %w", err))
 				}
 				// If sycnBcast, and we have a txHash (error or not), do a query-tx.
 				if len(txHash) != 0 && syncBcast {
 					time.Sleep(500 * time.Millisecond) // otherwise it says not found at first
 					resp, err := cl.TxQuery(ctx, txHash)
 					if err != nil {
-						return display.PrintErr(cmd, fmt.Errorf("tx query failed: %w", err))
+						return display.FormattedError(cmd, fmt.Errorf("tx query failed: %w", err))
 					}
 					return display.PrintCmd(cmd, display.NewTxHashAndExecResponse(resp))
 				}

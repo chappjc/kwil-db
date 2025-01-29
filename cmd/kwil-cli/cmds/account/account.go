@@ -18,17 +18,17 @@ var idCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		conf, err := config.ActiveConfig()
 		if err != nil {
-			return display.PrintErr(cmd, err)
+			return display.FormattedError(cmd, err)
 		}
 
 		if conf.PrivateKey == nil {
-			return display.PrintErr(cmd, errors.New("no private key configured"))
+			return display.FormattedError(cmd, errors.New("no private key configured"))
 		}
 
 		signer := &auth.EthPersonalSigner{Key: *conf.PrivateKey}
 		addr, err := auth.EthSecp256k1Authenticator{}.Identifier(signer.CompactID())
 		if err != nil {
-			return display.PrintErr(cmd, err)
+			return display.FormattedError(cmd, err)
 		}
 		return display.PrintCmd(cmd, display.RespString(addr))
 	},

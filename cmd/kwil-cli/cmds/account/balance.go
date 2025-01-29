@@ -37,7 +37,7 @@ func balanceCmd() *cobra.Command {
 				idStr := strings.TrimPrefix(args[0], "0x")
 				id, err := hex.DecodeString(idStr)
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("failed to decode account ID: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("failed to decode account ID: %w", err))
 				}
 
 				acctID = &types.AccountID{
@@ -49,12 +49,12 @@ func balanceCmd() *cobra.Command {
 			return client.DialClient(cmd.Context(), cmd, clientFlags, func(ctx context.Context, cl clientType.Client, conf *config.KwilCliConfig) error {
 				if len(args) == 0 {
 					if cl.Signer() == nil {
-						return display.PrintErr(cmd, errors.New("no account ID provided and no signer set"))
+						return display.FormattedError(cmd, errors.New("no account ID provided and no signer set"))
 					}
 
 					acctID, err = types.GetSignerAccount(cl.Signer())
 					if err != nil {
-						return display.PrintErr(cmd, fmt.Errorf("failed to get signer account: %w", err))
+						return display.FormattedError(cmd, fmt.Errorf("failed to get signer account: %w", err))
 					}
 
 				}
@@ -64,7 +64,7 @@ func balanceCmd() *cobra.Command {
 				}
 				acct, err := cl.GetAccount(ctx, acctID, status)
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("get account failed: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("get account failed: %w", err))
 				}
 				// NOTE: empty acct.Identifier means it doesn't even have a record
 				// on the network. We now convey that to the caller.

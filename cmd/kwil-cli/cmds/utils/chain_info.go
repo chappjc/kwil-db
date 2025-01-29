@@ -24,7 +24,7 @@ func chainInfoCmd() *cobra.Command {
 			return client.DialClient(cmd.Context(), cmd, client.WithoutPrivateKey, func(ctx context.Context, client1 cTypes.Client, cfg *config.KwilCliConfig) error {
 				chainInfo, err := client1.ChainInfo(ctx)
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 
 				return display.PrintCmd(cmd, &respChainInfo{Info: chainInfo})

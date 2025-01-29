@@ -54,7 +54,7 @@ func callActionCmd() *cobra.Command {
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
-				return display.PrintErr(cmd, fmt.Errorf("no action provided"))
+				return display.FormattedError(cmd, fmt.Errorf("no action provided"))
 			}
 
 			// positional parameters
@@ -62,7 +62,7 @@ func callActionCmd() *cobra.Command {
 			for _, p := range args[1:] {
 				_, param, err := parseTypedParam(p)
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 
 				params = append(params, param)
@@ -87,12 +87,12 @@ func callActionCmd() *cobra.Command {
 				if len(namedParams) > 0 {
 					paramList, err := GetParamList(ctx, cl.Query, namespace, args[0])
 					if err != nil {
-						return display.PrintErr(cmd, err)
+						return display.FormattedError(cmd, err)
 					}
 
 					_, values, pos, err := getNamedParams(paramList, namedParams)
 					if err != nil {
-						return display.PrintErr(cmd, err)
+						return display.FormattedError(cmd, err)
 					}
 					// there is a case where an action has 3 parameters, but only 2 are specified positionally,
 					// with the 3rd being specified as a named parameter. In this case, we need to ensure that the
@@ -108,7 +108,7 @@ func callActionCmd() *cobra.Command {
 
 				res, err := cl.Call(ctx, namespace, args[0], params)
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 
 				return display.PrintCmd(cmd, &respCall{Data: res, PrintLogs: logs, cmd: cmd})

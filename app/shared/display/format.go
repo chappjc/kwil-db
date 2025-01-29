@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -46,7 +47,7 @@ func (o OutputFormat) string() string {
 // Valid returns true if the output format is valid.
 func (o OutputFormat) valid() bool {
 	switch o {
-	case outputFormatText, outputFormatJSON:
+	case outputFormatText, outputFormatJSON, outputFormatSilent:
 		return true
 	default:
 		return false
@@ -54,8 +55,9 @@ func (o OutputFormat) valid() bool {
 }
 
 const (
-	outputFormatText OutputFormat = "text"
-	outputFormatJSON OutputFormat = "json"
+	outputFormatText   OutputFormat = "text"
+	outputFormatJSON   OutputFormat = "json"
+	outputFormatSilent OutputFormat = "silent"
 
 	defaultOutputFormat = outputFormatText
 )
@@ -108,33 +110,33 @@ func (w *wrappedMsg) MarshalJSON() ([]byte, error) {
 }
 
 // printJson prints the wrappedMsg in json format. It prints to stdout.
-// Any error in wrappedMsg.Error is always returned.
+// The input error is never returned, only an error from printing is returned.
 func (w *wrappedMsg) printJson(stdout io.Writer, _ io.Writer) error {
 	msg, err := json.MarshalIndent(w, "", "  ")
 	if err != nil {
-		return errors.Join(w.Error, err)
+		return err
 	}
 
 	fmt.Fprintln(stdout, string(msg))
-	return w.Error
+	return nil
 }
 
 // printText prints the wrappedMsg in text format. It prints to stdout if
 // `w.Error` is empty, otherwise it prints to stderr.
-// Any error in wrappedMsg.Error is always returned.
+// The input error is never returned, only an error from printing is returned.
 func (w *wrappedMsg) printText(stdout io.Writer, stderr io.Writer) error {
 	if w.Error != nil {
 		fmt.Fprintln(stderr, w.Error)
-		return w.Error
+		return nil
 	}
 
 	msg, err := w.Result.MarshalText()
 	if err != nil {
-		return errors.Join(w.Error, err)
+		return err
 	}
 
 	fmt.Fprintln(stdout, string(msg))
-	return w.Error
+	return nil
 }
 
 // wrapMsg wraps response and error in a wrappedMsg struct.
@@ -161,6 +163,8 @@ func prettyPrint(msg *wrappedMsg, format OutputFormat, stdout io.Writer, stderr 
 		return msg.printJson(stdout, stderr)
 	case outputFormatText:
 		return msg.printText(stdout, stderr)
+	case outputFormatSilent:
+		return nil
 	default:
 		return errors.Join(msg.Error, fmt.Errorf("invalid output format: %s", format))
 	}
@@ -203,24 +207,69 @@ func PrintCmd(cmd *cobra.Command, msg MsgFormatter) error {
 	return prettyPrint(wrappedMsg, OutputFormat(format), cmd.OutOrStdout(), cmd.OutOrStderr())
 }
 
-// PrintErr prints the error according to the commands output format flag. The
-// returned error will always include (be joined with) the input err.
-func PrintErr(cmd *cobra.Command, err error) error {
+type WrappedCmdErr struct {
+	Err          error
+	OutputFormat OutputFormat
+}
+
+func (wce *WrappedCmdErr) Error() string {
+	var out strings.Builder
+	err := prettyPrint(&wrappedMsg{
+		Result: &emptyResult{},
+		Error:  wce.Err,
+	}, wce.OutputFormat, &out, &out)
+	if err != nil {
+		return errors.Join(err, wce.Err).Error()
+	}
+	return out.String()
+}
+
+// FormattedError returns a WrappedCmdErr with the error and output format from the
+// command, which specifies	the output format to use.
+func FormattedError(cmd *cobra.Command, err error) error {
+	if err == nil {
+		return nil
+	}
 	outputFormat, err2 := getOutputFormat(cmd)
 	if err2 != nil {
 		return errors.Join(err, err2)
 	}
+	return &WrappedCmdErr{
+		Err:          err,
+		OutputFormat: outputFormat,
+	}
+}
+
+// PrintErr prints the error according to the commands output format flag. The
+// returned error is nil if the message it was printed successfully. Thus, this
+// function must ONLY be called from within a cobra.Command's RunE function or
+// or returned directly by the RunE function, NOT used to direct application
+// logic since the returned error no longer pertains to the initial error. This
+// also stores the error the command's Context, accessible via the
+// shared.CtxKeyCmdErr key. This allows the main function to determine if a
+// non-zero exit code should be returned.
+/*func PrintErr(cmd *cobra.Command, err error) error {
+	ctx := cmd.Context()
+	if ctxErr, _ := ctx.Value(shared.CtxKeyCmdErr).(error); ctxErr != nil {
+		ctx = context.WithValue(ctx, shared.CtxKeyCmdErr, errors.Join(err, ctxErr))
+		cmd.SetContext(ctx)
+	}
+
+	outputFormat, err2 := getOutputFormat(cmd)
+	if err2 != nil {
+		return err2
+	}
 
 	// if silencing but output is json, we should still print the json
 	if ShouldSilence(cmd) && outputFormat != outputFormatJSON {
-		return err
+		return nil
 	}
 
 	return prettyPrint(&wrappedMsg{
 		Result: &emptyResult{},
 		Error:  err,
 	}, outputFormat, cmd.OutOrStdout(), cmd.OutOrStderr())
-}
+}*/
 
 // Log prints the message to stdout if the silence flag is not set.
 func Log(cmd *cobra.Command, msg string) {
@@ -234,9 +283,13 @@ func getOutputFormat(cmd *cobra.Command) (OutputFormat, error) {
 	if err != nil || format == "" {
 		format = defaultOutputFormat.string()
 	}
-	if !OutputFormat(format).valid() {
+	outputFormat := OutputFormat(format)
+	if !outputFormat.valid() {
 		return "", fmt.Errorf("invalid output format: %s", format)
 	}
+	if ShouldSilence(cmd) && outputFormat != outputFormatJSON {
+		outputFormat = outputFormatSilent
+	}
 
-	return OutputFormat(format), nil
+	return outputFormat, nil
 }

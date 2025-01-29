@@ -22,12 +22,12 @@ func listCmd() *cobra.Command {
 			ctx := context.Background()
 			client, err := rpc.AdminSvcClient(ctx, cmd)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			peers, err := client.ListPeers(ctx)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			return display.PrintCmd(cmd, &listPeersMsg{peers: peers})

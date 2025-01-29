@@ -21,12 +21,12 @@ func statusCmd() *cobra.Command {
 			ctx := cmd.Context()
 			clt, err := rpc.AdminSvcClient(ctx, cmd)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			status, err := clt.BlockExecStatus(ctx)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			return display.PrintCmd(cmd, &respBlockExecStatus{Status: status})

@@ -50,11 +50,11 @@ func queryCmd() *cobra.Command {
 			case stmt == "" && len(args) == 1:
 				sqlStmt = args[0]
 			case stmt != "" && len(args) == 1:
-				return display.PrintErr(cmd, fmt.Errorf("cannot provide both a --stmt flag and an argument"))
+				return display.FormattedError(cmd, fmt.Errorf("cannot provide both a --stmt flag and an argument"))
 			case stmt == "" && len(args) == 0:
-				return display.PrintErr(cmd, fmt.Errorf("no SQL statement provided"))
+				return display.FormattedError(cmd, fmt.Errorf("no SQL statement provided"))
 			default:
-				return display.PrintErr(cmd, fmt.Errorf("unexpected error"))
+				return display.FormattedError(cmd, fmt.Errorf("unexpected error"))
 			}
 
 			var dialFlags uint8
@@ -73,18 +73,18 @@ func queryCmd() *cobra.Command {
 
 			params, err := parseParams(namedParams)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			_, err = parse.Parse(sqlStmt)
 			if err != nil {
-				return display.PrintErr(cmd, fmt.Errorf("failed to parse SQL statement: %s", err))
+				return display.FormattedError(cmd, fmt.Errorf("failed to parse SQL statement: %s", err))
 			}
 
 			return client.DialClient(cmd.Context(), cmd, dialFlags, func(ctx context.Context, cl clientType.Client, conf *config.KwilCliConfig) error {
 				res, err := cl.Query(ctx, sqlStmt, params)
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 
 				return display.PrintCmd(cmd, &respRelations{Data: res, cmd: cmd})

@@ -22,17 +22,17 @@ func abortCmd() *cobra.Command {
 
 			blockHeight, err := strconv.ParseInt(args[0], 10, 64)
 			if err != nil {
-				return display.PrintErr(cmd, fmt.Errorf("invalid block height: %w", err))
+				return display.FormattedError(cmd, fmt.Errorf("invalid block height: %w", err))
 			}
 
 			clt, err := rpc.AdminSvcClient(ctx, cmd)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			err = clt.AbortBlockExecution(ctx, blockHeight, txIDs)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			return nil

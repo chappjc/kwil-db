@@ -55,7 +55,7 @@ func ResetCmd() *cobra.Command {
 			dbCfg := conf.ActiveConfig().DB
 			pgConf, err := bind.GetPostgresFlags(cmd, &dbCfg)
 			if err != nil {
-				return display.PrintErr(cmd, fmt.Errorf("failed to get postgres flags: %v", err))
+				return display.FormattedError(cmd, fmt.Errorf("failed to get postgres flags: %v", err))
 			}
 
 			err = resetPGState(cmd.Context(), pgConf)

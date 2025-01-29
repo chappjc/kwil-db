@@ -55,7 +55,7 @@ func TestnetCmd() *cobra.Command {
 				DnsHost:     false,
 			})
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			return display.PrintCmd(cmd, display.RespString(fmt.Sprintf("Generated testnet configuration in %s", outDir)))

@@ -25,17 +25,17 @@ func txQueryCmd() *cobra.Command {
 
 			clt, err := rpc.AdminSvcClient(ctx, cmd)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			txHash, err := types.NewHashFromString(args[0])
 			if err != nil {
-				return display.PrintErr(cmd, fmt.Errorf("error decoding transaction id: %w", err))
+				return display.FormattedError(cmd, fmt.Errorf("error decoding transaction id: %w", err))
 			}
 
 			resp, err := clt.TxQuery(ctx, txHash)
 			if err != nil {
-				return display.PrintErr(cmd, fmt.Errorf("error querying transaction: %w", err))
+				return display.FormattedError(cmd, fmt.Errorf("error querying transaction: %w", err))
 			}
 
 			if full {

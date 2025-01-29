@@ -81,13 +81,13 @@ func testCmd() *cobra.Command {
 			if useTestContainer {
 				// if useTestContainer, ensure no other flags are set
 				if userHasSetPgConn {
-					return display.PrintErr(cmd, fmt.Errorf("cannot specify both --test-container and --%s", setPgConnFlag))
+					return display.FormattedError(cmd, fmt.Errorf("cannot specify both --test-container and --%s", setPgConnFlag))
 				}
 
 				opts.UseTestContainer = true
 			} else {
 				if !userHasSetPgConn {
-					return display.PrintErr(cmd, errors.New("must specify either postgres connection flags or --test-container"))
+					return display.FormattedError(cmd, errors.New("must specify either postgres connection flags or --test-container"))
 				}
 
 				opts.Conn = &testing.ConnConfig{
@@ -131,21 +131,21 @@ func testCmd() *cobra.Command {
 			for _, path := range testCases {
 				_, err := expandHome(&path)
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 
 				bts, err := os.ReadFile(path)
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 
 				var schemaTest testing.SchemaTest
 				if err = json.Unmarshal(bts, &schemaTest); err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 
 				if err = makeSchemaPathsRelative(&schemaTest, path); err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 
 				if err = schemaTest.Run(cmd.Context(), &opts); err != nil {

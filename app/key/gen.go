@@ -37,13 +37,13 @@ func GenCmd() *cobra.Command {
 				var err error
 				keyType, err = crypto.ParseKeyType(args[0])
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("invalid key type (%s): %w", args[0], err))
+					return display.FormattedError(cmd, fmt.Errorf("invalid key type (%s): %w", args[0], err))
 				}
 			}
 
 			privKey, err := crypto.GeneratePrivateKey(keyType)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			if out == "" {
@@ -54,7 +54,7 @@ func GenCmd() *cobra.Command {
 			}
 
 			if err := SaveNodeKey(out, privKey); err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			return display.PrintCmd(cmd, display.RespString("Private key written to "+out))

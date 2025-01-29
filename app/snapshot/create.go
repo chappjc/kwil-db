@@ -71,7 +71,7 @@ func createCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			snapshotDir, err := node.ExpandPath(snapshotDir)
 			if err != nil {
-				return display.PrintErr(cmd, fmt.Errorf("failed to expand snapshot directory path: %v", err))
+				return display.FormattedError(cmd, fmt.Errorf("failed to expand snapshot directory path: %v", err))
 			}
 
 			// Get the pg.ConnConfig from the flags, using the active node
@@ -79,12 +79,12 @@ func createCmd() *cobra.Command {
 			dbCfg := conf.ActiveConfig().DB
 			pgConf, err := bind.GetPostgresFlags(cmd, &dbCfg)
 			if err != nil {
-				return display.PrintErr(cmd, fmt.Errorf("failed to get postgres flags: %v", err))
+				return display.FormattedError(cmd, fmt.Errorf("failed to get postgres flags: %v", err))
 			}
 
 			height, logs, snapshot, genCfg, err := PGDump(cmd.Context(), pgConf.DBName, pgConf.User, pgConf.Pass, pgConf.Host, pgConf.Port, snapshotDir)
 			if err != nil {
-				return display.PrintErr(cmd, fmt.Errorf("failed to create database snapshot: %v", err))
+				return display.FormattedError(cmd, fmt.Errorf("failed to create database snapshot: %v", err))
 			}
 
 			r := &createSnapshotRes{

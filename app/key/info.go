@@ -43,24 +43,24 @@ func InfoCmd() *cobra.Command {
 				keyHex, keyTypeStr, _ := strings.Cut(args[0], "#")
 				keyBts, err := hex.DecodeString(keyHex)
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("private key not valid hex: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("private key not valid hex: %w", err))
 				}
 				keyType := crypto.KeyTypeSecp256k1 // default
 				if keyTypeStr != "" {
 					keyType, err = crypto.ParseKeyType(keyTypeStr)
 					if err != nil {
-						return display.PrintErr(cmd, fmt.Errorf("invalid key type (%s): %w", keyTypeStr, err))
+						return display.FormattedError(cmd, fmt.Errorf("invalid key type (%s): %w", keyTypeStr, err))
 					}
 				}
 				priv, err := crypto.UnmarshalPrivateKey(keyBts, keyType)
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("invalid key: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("invalid key: %w", err))
 				}
 				return display.PrintCmd(cmd, privKeyInfo(priv))
 			} else if privkeyFile != "" {
 				key, err := LoadNodeKey(privkeyFile)
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 				return display.PrintCmd(cmd, privKeyInfo(key))
 			}

@@ -22,7 +22,7 @@ func pingCmd() *cobra.Command {
 				func(ctx context.Context, client clientType.Client, cfg *config.KwilCliConfig) error {
 					res, err := client.Ping(ctx)
 					if err != nil {
-						return display.PrintErr(cmd, err)
+						return display.FormattedError(cmd, err)
 					}
 
 					return display.PrintCmd(cmd, display.RespString(res))

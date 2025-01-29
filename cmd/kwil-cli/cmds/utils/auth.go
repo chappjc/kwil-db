@@ -40,17 +40,17 @@ func kgwAuthnCmd() *cobra.Command {
 			return client.DialClient(cmd.Context(), cmd, client.UsingGateway,
 				func(ctx context.Context, client clientType.Client, cfg *config.KwilCliConfig) error {
 					if cfg.PrivateKey == nil {
-						return display.PrintErr(cmd, errors.New("private key not provided"))
+						return display.FormattedError(cmd, errors.New("private key not provided"))
 					}
 
 					gatewayClient, ok := client.(*gatewayclient.GatewayClient)
 					if !ok {
-						return display.PrintErr(cmd, errors.New("client is not a gateway client. this is an internal bug"))
+						return display.FormattedError(cmd, errors.New("client is not a gateway client. this is an internal bug"))
 					}
 
 					err := gatewayClient.Authenticate(ctx)
 					if err != nil {
-						return display.PrintErr(cmd, fmt.Errorf("authentication failed: %w", err))
+						return display.FormattedError(cmd, fmt.Errorf("authentication failed: %w", err))
 					}
 
 					// we do not need to persist the cookie since DialClient will do that for us

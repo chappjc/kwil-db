@@ -25,31 +25,31 @@ func showUpdateProposalCmd() *cobra.Command {
 			ctx := cmd.Context()
 			clt, err := rpc.AdminSvcClient(ctx, cmd)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			proposalID, err := types.ParseUUID(args[0])
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 			status, err := clt.ResolutionStatus(ctx, proposalID)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			if status.Type != consensus.ParamUpdatesResolutionType {
-				return display.PrintErr(cmd, fmt.Errorf("proposal is not a consensus update proposal, is %v", status.Type))
+				return display.FormattedError(cmd, fmt.Errorf("proposal is not a consensus update proposal, is %v", status.Type))
 			}
 
 			updateProps, err := clt.ListUpdateProposals(ctx)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 			propIdx := slices.IndexFunc(updateProps, func(p *types.ConsensusParamUpdateProposal) bool {
 				return p.ID == *proposalID
 			})
 			if propIdx == -1 {
-				return display.PrintErr(cmd, fmt.Errorf("proposal not found"))
+				return display.FormattedError(cmd, fmt.Errorf("proposal not found"))
 			}
 			prop := updateProps[propIdx]
 

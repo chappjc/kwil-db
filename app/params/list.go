@@ -21,12 +21,12 @@ func listUpdateProposalsCmd() *cobra.Command {
 			ctx := cmd.Context()
 			clt, err := rpc.AdminSvcClient(ctx, cmd)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			updateProps, err := clt.ListUpdateProposals(ctx)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			return display.PrintCmd(cmd, &UpdateProposals{updateProps: updateProps})

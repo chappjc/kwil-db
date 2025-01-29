@@ -35,21 +35,21 @@ func joinStatusCmd() *cobra.Command {
 
 			clt, err := rpc.AdminSvcClient(ctx, cmd)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			pubkeyBts, pubKeyType, err := config.DecodePubKeyAndType(args[0])
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			data, err := clt.JoinStatus(ctx, pubkeyBts, pubKeyType)
 			if err != nil {
 				if errors.Is(err, client.ErrNotFound) {
 					//lint:ignore ST1005 this error message is read from the CLI and reads better with capitalization and punctuation
-					return display.PrintErr(cmd, errors.New("No active join request for that validator. Have they already been approved?"))
+					return display.FormattedError(cmd, errors.New("No active join request for that validator. Have they already been approved?"))
 				}
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			return display.PrintCmd(cmd, &respValJoinStatus{Data: data})

@@ -69,23 +69,23 @@ func InitCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rootDir, err := bind.RootDir(cmd)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			// Ensure the root directory exists
 			outDir, err := node.ExpandPath(rootDir)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			// Ensure the output directory does not already exist...
 			if _, err := os.Stat(outDir); err == nil {
-				return display.PrintErr(cmd, fmt.Errorf("output directory %s already exists", outDir))
+				return display.FormattedError(cmd, fmt.Errorf("output directory %s already exists", outDir))
 			}
 
 			// create the output directory
 			if err := os.MkdirAll(outDir, nodeDirPerm); err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			cfg := conf.ActiveConfig()
@@ -99,7 +99,7 @@ func InitCmd() *cobra.Command {
 			}))
 
 			if cfg.Consensus.ProposeTimeout < config.MinProposeTimeout {
-				return display.PrintErr(cmd, fmt.Errorf("propose timeout must be at least %s", config.MinProposeTimeout.String()))
+				return display.FormattedError(cmd, fmt.Errorf("propose timeout must be at least %s", config.MinProposeTimeout.String()))
 			}
 
 			if !cmd.Flags().Changed(emptyBlockTimeoutFlag) {
@@ -113,13 +113,13 @@ func InitCmd() *cobra.Command {
 				genesisState = genFlags.genesisState
 				genesisState, err = node.ExpandPath(genesisState)
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 
 				stateFile := config.GenesisStateFileName(outDir)
 
 				if err := utils.CopyFile(genesisState, stateFile); err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 				cfg.GenesisState = stateFile
 			}
@@ -127,33 +127,33 @@ func InitCmd() *cobra.Command {
 			// Generate and save the node key to the root directory
 			privKey, err := crypto.GeneratePrivateKey(crypto.KeyTypeSecp256k1)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			if err := key.SaveNodeKey(config.NodeKeyFilePath(rootDir), privKey); err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			genFile := config.GenesisFilePath(outDir)
 			if genesisPath != "" { // Init for the node to join an existing network
 				if genesisPath, err = node.ExpandPath(genesisPath); err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 
 				// Load and save rather than copy file so that we validate the file.
 				genCfg, err := config.LoadGenesisConfig(genesisPath)
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("failed to load genesis file: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("failed to load genesis file: %w", err))
 				}
 
 				if err := genCfg.SaveAs(genFile); err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("failed to copy genesis file: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("failed to copy genesis file: %w", err))
 				}
 			} else { // Init command for creating a new network, new genesis file will be created
 				genCfg := config.DefaultGenesisConfig()
 				genCfg, err = mergeGenesisFlags(genCfg, cmd, &genFlags)
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("failed to create genesis file: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("failed to create genesis file: %w", err))
 				}
 
 				if !cmd.Flags().Changed(leaderFlag) {
@@ -175,7 +175,7 @@ func InitCmd() *cobra.Command {
 					signer := auth.GetUserSigner(privKey)
 					ident, err := authExt.GetIdentifierFromSigner(signer)
 					if err != nil {
-						return display.PrintErr(cmd, fmt.Errorf("failed to get identifier for dbOwner: %w", err))
+						return display.FormattedError(cmd, fmt.Errorf("failed to get identifier for dbOwner: %w", err))
 					}
 					genCfg.DBOwner = ident
 				}
@@ -195,13 +195,13 @@ func InitCmd() *cobra.Command {
 				}
 
 				if err := genCfg.SaveAs(genFile); err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 			}
 
 			// Save the config to the root directory
 			if err := cfg.SaveAs(config.ConfigFilePath(rootDir)); err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			return display.PrintCmd(cmd, display.RespString(fmt.Sprintf("Kwil node configuration generated at %s", outDir)))

@@ -30,16 +30,16 @@ func proposalStatusCmd() *cobra.Command {
 			ctx := cmd.Context()
 			clt, err := rpc.AdminSvcClient(ctx, cmd)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			proposalID, err := types.ParseUUID(args[0])
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 			status, err := clt.ResolutionStatus(ctx, proposalID)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			return display.PrintCmd(cmd, &MigrationStatus{

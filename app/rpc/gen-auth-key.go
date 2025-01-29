@@ -36,31 +36,31 @@ func genAuthKeyCmd() *cobra.Command {
 				keyFile = filepath.Join(rootDir, keyFile)
 			}
 			if fileExists(keyFile) {
-				return display.PrintErr(cmd, fmt.Errorf("key file exists: %v", keyFile))
+				return display.FormattedError(cmd, fmt.Errorf("key file exists: %v", keyFile))
 			}
 			if err := os.MkdirAll(filepath.Dir(keyFile), 0755); err != nil {
-				return display.PrintErr(cmd, fmt.Errorf("failed to create key file dir: %v", err))
+				return display.FormattedError(cmd, fmt.Errorf("failed to create key file dir: %v", err))
 			}
 
 			if !filepath.IsAbs(certFile) {
 				certFile = filepath.Join(rootDir, certFile)
 			}
 			if fileExists(certFile) {
-				return display.PrintErr(cmd, fmt.Errorf("cert file exists: %v", certFile))
+				return display.FormattedError(cmd, fmt.Errorf("cert file exists: %v", certFile))
 			}
 			if err := os.MkdirAll(filepath.Dir(certFile), 0755); err != nil {
-				return display.PrintErr(cmd, fmt.Errorf("failed to create key file dir: %v", err))
+				return display.FormattedError(cmd, fmt.Errorf("failed to create key file dir: %v", err))
 			}
 
 			err := transport.GenTLSKeyPair(certFile, keyFile, "local kwild CA", nil)
 			if err != nil {
-				return display.PrintErr(cmd, fmt.Errorf("failed to generate TLS key pair: %v", err))
+				return display.FormattedError(cmd, fmt.Errorf("failed to generate TLS key pair: %v", err))
 			}
 			certText, err := os.ReadFile(certFile)
 			if err != nil {
-				return display.PrintErr(cmd, fmt.Errorf("failed to read cert file: %v", err))
+				return display.FormattedError(cmd, fmt.Errorf("failed to read cert file: %v", err))
 			}
-			return appendToFile(filepath.Join(rootDir, "clients.pem"), certText)
+			return display.FormattedError(cmd, appendToFile(filepath.Join(rootDir, "clients.pem"), certText))
 		},
 	}
 

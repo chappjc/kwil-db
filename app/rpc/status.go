@@ -28,12 +28,12 @@ func statusCmd() *cobra.Command {
 			ctx := context.Background()
 			client, err := AdminSvcClient(ctx, cmd)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			status, err := client.Status(ctx)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			return display.PrintCmd(cmd, &statusMsg{status: status})

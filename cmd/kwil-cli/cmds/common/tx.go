@@ -42,14 +42,14 @@ func GetTxFlags(cmd *cobra.Command) (*TxFlags, error) {
 func DisplayTxResult(ctx context.Context, client1 client.Client, txHash types.Hash, cmd *cobra.Command) error {
 	txFlags, err := GetTxFlags(cmd)
 	if err != nil {
-		return display.PrintErr(cmd, err)
+		return display.FormattedError(cmd, err)
 	}
 
 	if len(txHash) > 0 && txFlags.SyncBroadcast {
 		// time.Sleep(500 * time.Millisecond) // TODO: remove once we have fixed race condition
 		resp, err := client1.TxQuery(ctx, txHash)
 		if err != nil {
-			return display.PrintErr(cmd, err)
+			return display.FormattedError(cmd, err)
 		}
 		return display.PrintCmd(cmd, display.NewTxHashAndExecResponse(resp))
 	}

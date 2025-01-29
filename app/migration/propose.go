@@ -39,11 +39,11 @@ func proposeCmd() *cobra.Command {
 			ctx := cmd.Context()
 			clt, err := rpc.AdminSvcClient(ctx, cmd)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			if migrationDuration <= 0 || activationPeriod <= 0 {
-				return display.PrintErr(cmd, errors.New("start-height and migration duration must be greater than 0"))
+				return display.FormattedError(cmd, errors.New("start-height and migration duration must be greater than 0"))
 			}
 
 			proposal := migrations.MigrationDeclaration{
@@ -53,13 +53,13 @@ func proposeCmd() *cobra.Command {
 			}
 			proposalBts, err := proposal.MarshalBinary()
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			// Submit a migration proposal
 			txHash, err := clt.CreateResolution(ctx, proposalBts, voting.StartMigrationEventType)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			id := types.VotableEventID(voting.StartMigrationEventType, proposalBts)

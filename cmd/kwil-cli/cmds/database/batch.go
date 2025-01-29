@@ -59,49 +59,49 @@ func batchCmd() *cobra.Command {
 			return client.DialClient(cmd.Context(), cmd, 0, func(ctx context.Context, cl clientType.Client, conf *config.KwilCliConfig) error {
 				namespace, _, err := getSelectedNamespace(cmd)
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("error getting selected namespace from CLI flags: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("error getting selected namespace from CLI flags: %w", err))
 				}
 
 				action, _, err := getSelectedAction(cmd, args)
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("error getting selected action or procedure: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("error getting selected action or procedure: %w", err))
 				}
 
 				fileType, err := getFileType(filePath)
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("error getting file type: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("error getting file type: %w", err))
 				}
 
 				if !isSupportedBatchFileType(fileType) {
-					return display.PrintErr(cmd, fmt.Errorf("unsupported file type: %s", fileType))
+					return display.FormattedError(cmd, fmt.Errorf("unsupported file type: %s", fileType))
 				}
 
 				file, err := os.Open(filePath)
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("error opening file: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("error opening file: %w", err))
 				}
 
 				inputs, err := buildInputs(file, fileType, csvColumnMappings, inputValueMappings)
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("error building inputs: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("error building inputs: %w", err))
 				}
 
 				tuples, err := buildExecutionInputs(ctx, cl, namespace, action, inputs)
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("error creating action inputs: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("error creating action inputs: %w", err))
 				}
 
 				txHash, err := cl.Execute(ctx, namespace, strings.ToLower(action), tuples,
 					clientType.WithNonce(nonceOverride), clientType.WithSyncBroadcast(syncBcast))
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("error executing action: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("error executing action: %w", err))
 				}
 				// If sycnBcast, and we have a txHash (error or not), do a query-tx.
 				if len(txHash) != 0 && syncBcast {
 					time.Sleep(500 * time.Millisecond) // otherwise it says not found at first
 					resp, err := cl.TxQuery(ctx, txHash)
 					if err != nil {
-						return display.PrintErr(cmd, fmt.Errorf("tx query failed: %w", err))
+						return display.FormattedError(cmd, fmt.Errorf("tx query failed: %w", err))
 					}
 					return display.PrintCmd(cmd, display.NewTxHashAndExecResponse(resp))
 				}

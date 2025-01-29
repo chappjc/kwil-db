@@ -67,12 +67,12 @@ func GenesisCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			outDir, err := node.ExpandPath(output)
 			if err != nil {
-				return display.PrintErr(cmd, fmt.Errorf("failed to expand output path: %w", err))
+				return display.FormattedError(cmd, fmt.Errorf("failed to expand output path: %w", err))
 			}
 
 			err = os.MkdirAll(outDir, nodeDirPerm)
 			if err != nil {
-				return display.PrintErr(cmd, fmt.Errorf("failed to create output directory: %w", err))
+				return display.FormattedError(cmd, fmt.Errorf("failed to create output directory: %w", err))
 			}
 
 			genesisFile := config.GenesisFilePath(outDir)
@@ -80,12 +80,12 @@ func GenesisCmd() *cobra.Command {
 			conf := config.DefaultGenesisConfig()
 			conf, err = mergeGenesisFlags(conf, cmd, &flagCfg)
 			if err != nil {
-				return display.PrintErr(cmd, fmt.Errorf("failed to create genesis file: %w", err))
+				return display.FormattedError(cmd, fmt.Errorf("failed to create genesis file: %w", err))
 			}
 
 			// if no validators are set, error
 			if len(conf.Validators) == 0 {
-				return display.PrintErr(cmd, fmt.Errorf("at least one validator is required"))
+				return display.FormattedError(cmd, fmt.Errorf("at least one validator is required"))
 			}
 
 			// if a leader is set, make sure it is a validator
@@ -98,7 +98,7 @@ func GenesisCmd() *cobra.Command {
 					}
 				}
 				if !found {
-					return display.PrintErr(cmd, fmt.Errorf("leader must be a validator"))
+					return display.FormattedError(cmd, fmt.Errorf("leader must be a validator"))
 				}
 			}
 
@@ -108,12 +108,12 @@ func GenesisCmd() *cobra.Command {
 				// we don't need to check that there is at least one validator because we already checked that above
 				ktDef, ok := crypto.KeyTypeDefinition(conf.Validators[0].KeyType)
 				if !ok {
-					return display.PrintErr(cmd, fmt.Errorf("unknown key type for validator: %s", conf.Validators[0].KeyType))
+					return display.FormattedError(cmd, fmt.Errorf("unknown key type for validator: %s", conf.Validators[0].KeyType))
 				}
 
 				pubKey, err := ktDef.UnmarshalPublicKey(conf.Validators[0].AccountID.Identifier)
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("failed to unmarshal public key: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("failed to unmarshal public key: %w", err))
 				}
 
 				conf.Leader = types.PublicKey{PublicKey: pubKey}
@@ -127,14 +127,14 @@ func GenesisCmd() *cobra.Command {
 
 			existingFile, err := os.Stat(genesisFile)
 			if err == nil && existingFile.IsDir() {
-				return display.PrintErr(cmd, fmt.Errorf("a directory already exists at %s, please remove it first", genesisFile))
+				return display.FormattedError(cmd, fmt.Errorf("a directory already exists at %s, please remove it first", genesisFile))
 			} else if err == nil {
-				return display.PrintErr(cmd, fmt.Errorf("file already exists at %s, please remove it first", genesisFile))
+				return display.FormattedError(cmd, fmt.Errorf("file already exists at %s, please remove it first", genesisFile))
 			}
 
 			err = conf.SaveAs(genesisFile)
 			if err != nil {
-				return display.PrintErr(cmd, fmt.Errorf("failed to save genesis file: %w", err))
+				return display.FormattedError(cmd, fmt.Errorf("failed to save genesis file: %w", err))
 			}
 
 			return display.PrintCmd(cmd, display.RespString("Created genesis.json file at "+genesisFile))

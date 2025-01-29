@@ -54,7 +54,7 @@ func GenesisHashCmd() *cobra.Command {
 		PersistentPreRunE: bind.ChainPreRuns(conf.PreRunBindConfigFileStrict[config.Config]), // but not the flags
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("snapshot") && cmd.Flags().Changed(bind.RootFlagName) {
-				return display.PrintErr(cmd, errors.New("cannot use both --snapshot and --root-dir"))
+				return display.FormattedError(cmd, errors.New("cannot use both --snapshot and --root-dir"))
 			}
 
 			var appHash []byte
@@ -62,36 +62,36 @@ func GenesisHashCmd() *cobra.Command {
 				var err error
 				appHash, err = appHashFromSnapshotFile(snapshotFile)
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 			} else { // create a snapshot first
 				dbCfg := conf.ActiveConfig().DB
 				pgConf, err := bind.GetPostgresFlags(cmd, &dbCfg)
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("failed to get postgres flags: %v", err))
+					return display.FormattedError(cmd, fmt.Errorf("failed to get postgres flags: %v", err))
 				}
 
 				dir, err := tmpKwilAdminSnapshotDir()
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 
 				// clean up any previous temp admin snapshots
 				err = cleanupTmpKwilAdminDir(dir)
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 
 				// ensure the temp admin snapshots directory exists
 				err = ensureTmpKwilAdminDir(dir)
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 				defer cleanupTmpKwilAdminDir(dir) // clean up temp admin snapshots directory on exit after app hash computation
 
 				_, _, _, genCfg, err := snapshot.PGDump(cmd.Context(), pgConf.DBName, pgConf.User, pgConf.Pass, pgConf.Host, pgConf.Port, dir)
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 
 				appHash = genCfg.StateHash
@@ -100,7 +100,7 @@ func GenesisHashCmd() *cobra.Command {
 			if genesisFile != "" {
 				err := writeAndReturnGenesisHash(genesisFile, appHash)
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 			}
 			return display.PrintCmd(cmd, &genesisHashRes{

@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/kwilteam/kwil-db/app"
+	"github.com/kwilteam/kwil-db/app/shared"
 )
 
 func main() {
@@ -30,7 +31,13 @@ func main() {
 	// 	rootCmd.SetArgs(args)
 	// }
 
-	if err := rootCmd.ExecuteContext(ctx); err != nil {
+	if err := rootCmd.ExecuteContext(ctx); err != nil { // command syntax error
 		os.Exit(-1)
 	}
+	err := shared.CmdCtxErr(rootCmd)
+	if err != nil { // command / application error
+		fmt.Fprintf(os.Stderr, "%v\n", err) // comment out
+		os.Exit(-1)
+	}
+	os.Exit(0)
 }

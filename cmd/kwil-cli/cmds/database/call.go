@@ -63,34 +63,34 @@ func callCmd() *cobra.Command {
 			return client.DialClient(cmd.Context(), cmd, dialFlags, func(ctx context.Context, clnt clientType.Client, conf *config.KwilCliConfig) error {
 				namespace, _, err := getSelectedNamespace(cmd)
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("error getting selected namespace from CLI flags: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("error getting selected namespace from CLI flags: %w", err))
 				}
 
 				action, args, err := getSelectedAction(cmd, args)
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("error getting selected action or procedure: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("error getting selected action or procedure: %w", err))
 				}
 
 				inputs, err := parseInputs(args)
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("error getting inputs: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("error getting inputs: %w", err))
 				}
 
 				tuples, err := buildExecutionInputs(ctx, clnt, namespace, action, []map[string]string{inputs})
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("error creating action/procedure inputs: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("error creating action/procedure inputs: %w", err))
 				}
 
 				if len(tuples) == 0 {
 					tuples = append(tuples, []any{})
 				}
 				if len(tuples) > 1 {
-					return display.PrintErr(cmd, errors.New("only one set of inputs can be provided to call"))
+					return display.FormattedError(cmd, errors.New("only one set of inputs can be provided to call"))
 				}
 
 				data, err := clnt.Call(ctx, namespace, action, tuples[0])
 				if err != nil {
-					return display.PrintErr(cmd, fmt.Errorf("error calling action/procedure: %w", err))
+					return display.FormattedError(cmd, fmt.Errorf("error calling action/procedure: %w", err))
 				}
 
 				if data == nil {

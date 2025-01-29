@@ -29,17 +29,17 @@ func approveCmd() *cobra.Command {
 
 			clt, err := rpc.AdminSvcClient(ctx, cmd)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			joinerPubKey, keyType, err := config.DecodePubKeyAndType(args[0])
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			txHash, err := clt.Approve(ctx, joinerPubKey, keyType)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			return display.PrintCmd(cmd, display.RespTxHash(txHash))

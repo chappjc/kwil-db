@@ -16,7 +16,7 @@ func printConfigCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := config.ActiveConfig()
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			return display.PrintCmd(cmd, &respKwilCliConfig{cfg: cfg})

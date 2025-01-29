@@ -48,7 +48,7 @@ func decodeTxCmd() *cobra.Command {
 				argReader := cmd.InOrStdin()
 				txStrB, err := fromStdIn(argReader)
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 				txStr = string(txStrB)
 			} else {
@@ -56,12 +56,12 @@ func decodeTxCmd() *cobra.Command {
 			}
 			txBts, err := hex.DecodeString(txStr)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			tx, err := decodeTx(txBts)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			tx.WithPayload = withPayload

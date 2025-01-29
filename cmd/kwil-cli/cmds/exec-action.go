@@ -67,55 +67,55 @@ func execActionCmd() *cobra.Command {
 		Example: execActionExample,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {
-				return display.PrintErr(cmd, fmt.Errorf("no action provided"))
+				return display.FormattedError(cmd, fmt.Errorf("no action provided"))
 			}
 
 			txFlags, err := common.GetTxFlags(cmd)
 			if err != nil {
-				return display.PrintErr(cmd, err)
+				return display.FormattedError(cmd, err)
 			}
 
 			if len(args) > 1 && csvFile != "" {
-				return display.PrintErr(cmd, fmt.Errorf("cannot specify both CSV file and positional parameters"))
+				return display.FormattedError(cmd, fmt.Errorf("cannot specify both CSV file and positional parameters"))
 			}
 
 			// if csv file is specified, it is a batch action
 			if csvFile != "" {
 				path, err := helpers.ExpandPath(csvFile)
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 
 				file, err := os.Open(path)
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 				defer file.Close()
 
 				csv, err := csv.Read(file, csv.ContainsHeader)
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 
 				if len(csv.Records) == 0 {
-					return display.PrintErr(cmd, errors.New("no records found in CSV file"))
+					return display.FormattedError(cmd, errors.New("no records found in CSV file"))
 				}
 
 				return client.DialClient(cmd.Context(), cmd, 0, func(ctx context.Context, cl clientType.Client, conf *config.KwilCliConfig) error {
 					// if named params are specified, we need to query the action to find their positions
 					paramList, err := GetParamList(ctx, cl.Query, namespace, args[0])
 					if err != nil {
-						return display.PrintErr(cmd, err)
+						return display.FormattedError(cmd, err)
 					}
 
 					inputs, err := csvToParams(paramList, csv, csvParams, namedParams)
 					if err != nil {
-						return display.PrintErr(cmd, err)
+						return display.FormattedError(cmd, err)
 					}
 
 					tx, err := cl.Execute(ctx, namespace, args[0], inputs, clientType.WithNonce(txFlags.NonceOverride), clientType.WithSyncBroadcast(txFlags.SyncBroadcast))
 					if err != nil {
-						return display.PrintErr(cmd, err)
+						return display.FormattedError(cmd, err)
 					}
 
 					return common.DisplayTxResult(ctx, cl, tx, cmd)
@@ -127,7 +127,7 @@ func execActionCmd() *cobra.Command {
 			for _, p := range args[1:] {
 				_, param, err := parseTypedParam(p)
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 
 				params = append(params, param)
@@ -138,12 +138,12 @@ func execActionCmd() *cobra.Command {
 				if len(namedParams) > 0 {
 					paramList, err := GetParamList(ctx, cl.Query, namespace, args[0])
 					if err != nil {
-						return display.PrintErr(cmd, err)
+						return display.FormattedError(cmd, err)
 					}
 
 					_, values, pos, err := getNamedParams(paramList, namedParams)
 					if err != nil {
-						return display.PrintErr(cmd, err)
+						return display.FormattedError(cmd, err)
 					}
 					// there is a case where an action has 3 parameters, but only 2 are specified positionally,
 					// with the 3rd being specified as a named parameter. In this case, we need to ensure that the
@@ -159,7 +159,7 @@ func execActionCmd() *cobra.Command {
 
 				tx, err := cl.Execute(ctx, namespace, args[0], [][]any{params}, clientType.WithNonce(txFlags.NonceOverride), clientType.WithSyncBroadcast(txFlags.SyncBroadcast))
 				if err != nil {
-					return display.PrintErr(cmd, err)
+					return display.FormattedError(cmd, err)
 				}
 
 				return common.DisplayTxResult(ctx, cl, tx, cmd)
