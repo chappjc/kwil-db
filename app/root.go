@@ -41,7 +41,8 @@ func RootCmd() *cobra.Command {
 		Short:             custom.BinaryConfig.ProjectName + " daemon",
 		Long:              custom.BinaryConfig.ProjectName + " node and utilities",
 		DisableAutoGenTag: true,
-		SilenceUsage:      true,
+		// SilenceErrors:     true, // we display them ourselves
+		SilenceUsage: true,
 		CompletionOptions: cobra.CompletionOptions{
 			DisableDefaultCmd: true,
 		},

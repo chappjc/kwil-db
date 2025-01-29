@@ -5,6 +5,7 @@ package display
 import (
 	"encoding"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -89,35 +90,51 @@ type MessageReader[T any] struct {
 
 type wrappedMsg struct {
 	Result MsgFormatter `json:"result"`
-	Error  string       `json:"error"`
+	Error  error        `json:"error"`
+}
+
+func (w *wrappedMsg) MarshalJSON() ([]byte, error) {
+	var errMsg string
+	if w.Error != nil {
+		errMsg = w.Error.Error()
+	}
+	return json.Marshal(struct {
+		Result MsgFormatter `json:"result"`
+		Error  string       `json:"error"`
+	}{
+		Result: w.Result,
+		Error:  errMsg,
+	})
 }
 
 // printJson prints the wrappedMsg in json format. It prints to stdout.
+// Any error in wrappedMsg.Error is always returned.
 func (w *wrappedMsg) printJson(stdout io.Writer, _ io.Writer) error {
 	msg, err := json.MarshalIndent(w, "", "  ")
 	if err != nil {
-		return err
+		return errors.Join(w.Error, err)
 	}
 
 	fmt.Fprintln(stdout, string(msg))
-	return nil
+	return w.Error
 }
 
 // printText prints the wrappedMsg in text format. It prints to stdout if
 // `w.Error` is empty, otherwise it prints to stderr.
+// Any error in wrappedMsg.Error is always returned.
 func (w *wrappedMsg) printText(stdout io.Writer, stderr io.Writer) error {
-	if w.Error != "" {
+	if w.Error != nil {
 		fmt.Fprintln(stderr, w.Error)
-		return nil
+		return w.Error
 	}
 
 	msg, err := w.Result.MarshalText()
 	if err != nil {
-		return err
+		return errors.Join(w.Error, err)
 	}
 
 	fmt.Fprintln(stdout, string(msg))
-	return nil
+	return w.Error
 }
 
 // wrapMsg wraps response and error in a wrappedMsg struct.
@@ -125,16 +142,19 @@ func wrapMsg(msg MsgFormatter, err error) *wrappedMsg {
 	if err != nil {
 		return &wrappedMsg{
 			Result: &emptyResult{},
-			Error:  err.Error(),
+			Error:  err,
 		}
 	}
 
 	return &wrappedMsg{
 		Result: msg,
-		Error:  "",
+		Error:  nil,
 	}
 }
 
+// prettyPrint prints the wrappedMsg in the given format. Any error in msg.Error
+// is always returned, but it may be joined with any other errors related to
+// printing.
 func prettyPrint(msg *wrappedMsg, format OutputFormat, stdout io.Writer, stderr io.Writer) error {
 	switch format {
 	case outputFormatJSON:
@@ -142,15 +162,15 @@ func prettyPrint(msg *wrappedMsg, format OutputFormat, stdout io.Writer, stderr 
 	case outputFormatText:
 		return msg.printText(stdout, stderr)
 	default:
-		return fmt.Errorf("invalid output format: %s", format)
+		return errors.Join(msg.Error, fmt.Errorf("invalid output format: %s", format))
 	}
 }
 
 // Print is a helper function to wrap and print message in given format.
 // THIS SHOULD NOT BE USED IN COMMANDS. Use PrintCmd instead.
-func Print(msg MsgFormatter, err error, format OutputFormat) error {
+func Print(msg MsgFormatter, err error, format OutputFormat) {
 	wrappedMsg := wrapMsg(msg, err)
-	return prettyPrint(wrappedMsg, format, os.Stdout, os.Stderr)
+	prettyPrint(wrappedMsg, format, os.Stdout, os.Stderr)
 }
 
 // PrintCmd prints output based on the commands output format flag.
@@ -158,7 +178,7 @@ func Print(msg MsgFormatter, err error, format OutputFormat) error {
 func PrintCmd(cmd *cobra.Command, msg MsgFormatter) error {
 	wrappedMsg := &wrappedMsg{
 		Result: msg,
-		Error:  "",
+		Error:  nil,
 	}
 
 	format, err := cmd.Flags().GetString("output")
@@ -184,24 +204,21 @@ func PrintCmd(cmd *cobra.Command, msg MsgFormatter) error {
 }
 
 // PrintErr prints the error according to the commands output format flag. The
-// returned error is nil if the message it was printed successfully. Thus, this
-// function must ONLY be called from within a cobra.Command's RunE function or
-// or returned directly by the RunE function, NOT used to direct application
-// logic since the returned error no longer pertains to the initial error.
+// returned error will always include (be joined with) the input err.
 func PrintErr(cmd *cobra.Command, err error) error {
 	outputFormat, err2 := getOutputFormat(cmd)
 	if err2 != nil {
-		return err2
+		return errors.Join(err, err2)
 	}
 
 	// if silencing but output is json, we should still print the json
 	if ShouldSilence(cmd) && outputFormat != outputFormatJSON {
-		return nil
+		return err
 	}
 
 	return prettyPrint(&wrappedMsg{
 		Result: &emptyResult{},
-		Error:  err.Error(),
+		Error:  err,
 	}, outputFormat, cmd.OutOrStdout(), cmd.OutOrStderr())
 }
 
