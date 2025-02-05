@@ -82,14 +82,20 @@ type ChangesetEntry struct {
 	// unchanged, elements of NewTuple may an unchanged{} instance.
 }
 
+const (
+	CSEntryKindDelete = "delete"
+	CSEntryKindInsert = "insert"
+	CSEntryKindUpdate = "update"
+)
+
 func (ce *ChangesetEntry) Kind() string {
 	if len(ce.NewTuple) == 0 {
-		return "delete"
+		return CSEntryKindDelete
 	}
 	if len(ce.OldTuple) == 0 {
-		return "insert"
+		return CSEntryKindInsert
 	}
-	return "update"
+	return CSEntryKindUpdate
 }
 
 func (ce *ChangesetEntry) String() string {
@@ -182,12 +188,6 @@ func (ce *ChangesetEntry) UnmarshalBinary(data []byte) error {
 		return err
 	}
 
-	// var numOld uint32
-	// err = binary.Read(rd, binary.LittleEndian, &numOld)
-	// if err != nil {
-	// 	return err
-	// }
-
 	offset := int(rd.Size()) - rd.Len() // rd.Seek(0, io.SeekCurrent)
 
 	numOld := binary.LittleEndian.Uint32(data[offset:])
@@ -237,12 +237,14 @@ func (ce *ChangesetEntry) UnmarshalBinary(data []byte) error {
 
 func (ce *ChangesetEntry) ApplyChangesetEntry(ctx context.Context, tx sql.DB, relation *Relation) error {
 	switch ce.Kind() {
-	case "insert":
+	case CSEntryKindInsert:
 		return ce.applyInserts(ctx, tx, relation)
-	case "delete":
+	case CSEntryKindDelete:
 		return ce.applyDeletes(ctx, tx, relation)
-	default:
+	case CSEntryKindUpdate:
 		return ce.applyUpdates(ctx, tx, relation)
+	default:
+		return errors.New("unknown changeset entry type")
 	}
 }
 
@@ -884,19 +886,31 @@ type TupleColumn struct {
 }
 
 func (tc TupleColumn) MarshalBinary() ([]byte, error) {
-	// 2 bytes for version, 1 byte for value type, 8 bytes for length, and the data
 	b := make([]byte, tc.SerializeSize())
+
 	const ver uint16 = 0 // future proofing
 	binary.BigEndian.PutUint16(b[:2], ver)
+
 	b[2] = byte(tc.ValueType)
-	binary.BigEndian.PutUint64(b[3:], uint64(len(tc.Data)))
+
+	// Distinguish between nil and empty byte slices with a special value
+	// (MaxUint64) for nil.
+	lenVal := uint64(len(tc.Data))
+	if tc.Data == nil {
+		lenVal = math.MaxUint64
+	}
+	binary.BigEndian.PutUint64(b[3:], lenVal)
+
 	copy(b[11:], tc.Data)
+
 	return b, nil
 }
 
 // SerializeSize returns the size of the serialized tuple column as serialized
 // via [MarshalBinary].
 func (tc TupleColumn) SerializeSize() int {
+	// 2 bytes for version, 1 byte for value type, 8 bytes for length (MaxUint64
+	// indicates nil rather than empty), and the data
 	return 2 + 1 + 8 + len(tc.Data)
 }
 
@@ -916,7 +930,7 @@ func (tc *TupleColumn) UnmarshalBinary(data []byte) error {
 	if dataLen >= math.MaxUint32 { // just some sanity, and for safe conversions
 		return fmt.Errorf("data length too long: %d", dataLen)
 	}
-	if tc.ValueType == NullValue {
+	if tc.ValueType == NullValue { // when not in an array, nulls are flagged like this
 		if dataLen != 0 {
 			return fmt.Errorf("invalid tuple column data length: %d", dataLen)
 		}
@@ -924,6 +938,15 @@ func (tc *TupleColumn) UnmarshalBinary(data []byte) error {
 	}
 	if len(data) < offset+int(dataLen) {
 		return fmt.Errorf("invalid tuple column data length: %d", dataLen)
+	}
+	// When a null is in an array, we recognize it as length MaxUint64.
+	if dataLen == math.MaxUint64 {
+		tc.Data = nil
+		return nil
+	}
+	if dataLen == 0 {
+		tc.Data = []byte{} // e.g. empty string
+		return nil
 	}
 	tc.Data = data[offset : offset+int(dataLen)]
 	offset += int(dataLen)
@@ -937,8 +960,9 @@ func (tc *TupleColumn) UnmarshalBinary(data []byte) error {
 type ValueType uint8
 
 const (
-	// NullValue indicates a NULL value
-	// (as opposed to something like an empty string).
+	// NullValue indicates a NULL value (as opposed to something like an empty
+	// string). Note that this is only used for a scalar value; for values in an
+	// array, a NULL is SerializedValue.
 	NullValue ValueType = iota
 	// ToastValue indicates a column is a TOAST pointer,
 	// and that the actual value is stored elsewhere and

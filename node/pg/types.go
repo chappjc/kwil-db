@@ -117,8 +117,11 @@ type datatype struct {
 	// https://github.com/jackc/pglogrepl/blob/828fbfe908e97cfeb409a17e4ec339dede1f1a17/message.go#L379
 	// Every implementation must be able to handle a string "NULL".
 	SerializeChangeset func(value string) ([]byte, error)
-	// DeserializeChangeset encodes a data type from a changeset to its native Go/Kwil type.
-	// This can then be used to execute an incoming changeset against a database.
+	// DeserializeChangeset encodes a data type from a changeset to its native
+	// Go/Kwil type. This can then be used to execute an incoming changeset
+	// against a database. This does NOT match SerializeChangeset, which starts
+	// from a postgres string representation of a "tuple column", while this
+	// returns a Go type.
 	DeserializeChangeset func([]byte) (any, error)
 }
 
@@ -149,8 +152,9 @@ func pgNumericToDecimal(num pgtype.Numeric) (*types.Decimal, error) {
 	return types.NewDecimalFromBigInt(i, e)
 }
 
-// splitString splits a pg array of strings that may have escape sequences.
-func splitString(s string) []string {
+// pgStringArraySplit splits a pg array of strings that may have escape sequences.
+// The curlys must already be removed.
+func pgStringArraySplit(s string) []string {
 	var tokens []string
 	var token strings.Builder
 	var inQuotes, escape bool
@@ -199,12 +203,13 @@ var (
 			if value == `NULL` {
 				return nil, nil
 			}
-			if value == `"NULL"` {
-				value = "NULL" // never change, postgres
-			}
+			// An actual string "NULL" will have quotes. Other strings may or
+			// may not have quotes. We keep all quotes regardless so the
+			// deserialized and applied changeset will work as required.
 			return []byte(value), nil
 		},
 		DeserializeChangeset: func(b []byte) (any, error) {
+			// Only nil represents a NULL value. An empty slice is an empty string.
 			if b == nil {
 				return nil, nil
 			}
@@ -227,7 +232,7 @@ var (
 				return nil, fmt.Errorf("invalid text array: %s", value)
 			}
 
-			strs := splitString(value)
+			strs := pgStringArraySplit(value)
 
 			return serializeArray(strs, 4, textType.SerializeChangeset)
 		},
@@ -264,6 +269,9 @@ var (
 		DeserializeChangeset: func(b []byte) (any, error) {
 			if len(b) == 0 {
 				return nil, nil
+			}
+			if len(b) != 8 {
+				return nil, fmt.Errorf("invalid int64: %s", b)
 			}
 			return int64(binary.LittleEndian.Uint64(b)), nil
 		},
@@ -339,7 +347,7 @@ var (
 			return hex.DecodeString(value[2:])
 		},
 		DeserializeChangeset: func(b []byte) (any, error) {
-			if len(b) == 0 {
+			if b == nil {
 				return nil, nil
 			}
 			return b, nil
@@ -365,6 +373,7 @@ var (
 
 			bts := make([][]byte, len(vals))
 			for i, v := range vals {
+				// this has null handling up here instead of in the blobType.SerializeChangeset
 				if v == `NULL` {
 					continue
 				}
