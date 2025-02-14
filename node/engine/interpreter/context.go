@@ -152,7 +152,10 @@ func (e *executionContext) query(sql string, fn func(*row) error) error {
 	e.queryActive = true
 	defer func() { e.queryActive = false }()
 
-	res, err := parse.Parse(sql)
+	// TODO: we need a sql => []TopLevelStatement cache, especially when the
+	// `sql` is an existing action rather than some new user provided query.
+
+	res, err := parse.Parse(sql) // HOT spot for every repeated action call
 	if err != nil {
 		return fmt.Errorf("%w: invalid query '%s': %w", engine.ErrParse, sql, err)
 	}
@@ -168,6 +171,20 @@ func (e *executionContext) query(sql string, fn func(*row) error) error {
 		return fmt.Errorf("node bug: expected *parse.SQLStatement, got %T", res[0])
 	}
 
+	return e.querySqlStatementBase(sqlStmt, fn)
+}
+
+func (e *executionContext) querySqlStatement(sqlStmt *parse.SQLStatement, fn func(*row) error) error {
+	if e.queryActive {
+		return engine.ErrQueryActive
+	}
+	e.queryActive = true
+	defer func() { e.queryActive = false }()
+
+	return e.querySqlStatementBase(sqlStmt, fn)
+}
+
+func (e *executionContext) querySqlStatementBase(sqlStmt *parse.SQLStatement, fn func(*row) error) error {
 	// create a logical plan. This will make the query deterministic (if necessary),
 	// as well as tell us what the return types will be.
 	analyzed, err := logical.CreateLogicalPlan(
@@ -217,19 +234,19 @@ func (e *executionContext) query(sql string, fn func(*row) error) error {
 	}
 
 	// get the params we will pass
-	var args []value
-	for _, param := range params {
+	args := make([]value, len(params))
+	for i, param := range params {
 		val, err := e.getVariable(param)
 		if err != nil {
 			return err
 		}
 
-		args = append(args, val)
+		args[i] = val
 	}
 
 	// get the scan values as well:
-	var scanValues []value
-	for _, field := range analyzed.Plan.Relation().Fields {
+	scanValues := make([]value, len(analyzed.Plan.Relation().Fields))
+	for i, field := range analyzed.Plan.Relation().Fields {
 		scalar, err := field.Scalar()
 		if err != nil {
 			return err
@@ -240,7 +257,7 @@ func (e *executionContext) query(sql string, fn func(*row) error) error {
 			return err
 		}
 
-		scanValues = append(scanValues, zVal)
+		scanValues[i] = zVal
 	}
 
 	cols := make([]string, len(analyzed.Plan.Relation().Fields))

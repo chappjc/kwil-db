@@ -554,7 +554,7 @@ type SQLStatement struct {
 	Recursive bool
 	// SQL can be an insert, update, delete, or select statement.
 	SQL SQLCore
-	// raw is the raw SQL string.
+	// raw is the raw SQL string. It is set by a visitor like (*schemaVisitor).VisitSql_statement.
 	raw *string
 }
 
@@ -1475,7 +1475,7 @@ func (u *OnConflict) Accept(v Visitor) any {
 
 // action logic ast:
 
-// ActionStmt is a statement in a actiob.
+// ActionStmt is a statement in an action.
 // it is the top-level interface for all action statements.
 type ActionStmt interface {
 	Node

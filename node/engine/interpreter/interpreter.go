@@ -542,6 +542,8 @@ func (i *baseInterpreter) execute(ctx *common.EngineContext, db sql.DB, statemen
 		fn = func(*common.Row) error { return nil }
 	}
 
+	// TODO: we need an ast cache for known statements, maybe, this is for raw statement / query, not action
+
 	// parse the statement
 	ast, err := parse.Parse(statement)
 	if err != nil {

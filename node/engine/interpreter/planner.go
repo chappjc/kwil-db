@@ -20,15 +20,15 @@ func makeActionToExecutable(namespace string, act *action) *executable {
 	planner := &interpreterPlanner{}
 	stmtFns := make([]stmtFunc, len(act.Body))
 	for j, stmt := range act.Body {
-		stmtFns[j] = stmt.Accept(planner).(stmtFunc)
+		stmtFns[j] = stmt.Accept(planner).(stmtFunc) // all interpreterPlanner Visit* methods return a stmtFunc
 	}
 
 	validateArgs := func(v []value) ([]value, error) {
-		newVal := make([]value, len(v))
 		if len(v) != len(act.Parameters) {
 			return nil, fmt.Errorf("expected %d arguments, got %d", len(act.Parameters), len(v))
 		}
 
+		newVal := make([]value, len(v))
 		for i, arg := range v {
 			if !act.Parameters[i].Type.Equals(arg.Type()) {
 				return nil, fmt.Errorf("%w: expected argument %d to be %s, got %s", engine.ErrType, i+1, act.Parameters[i].Type, arg.Type())
@@ -81,39 +81,36 @@ func makeActionToExecutable(namespace string, act *action) *executable {
 				}
 			}
 
-			// execute the statements
-			for _, stmt := range stmtFns {
-				err := stmt(exec2, func(row *row) error {
-					row.columns = returnColNames
+			rowFn := func(row *row) error { // wrap the provided fn with return type checks and casting
+				row.columns = returnColNames
 
-					// we will ensure that the return values match the expected return types
-					if len(row.Values) != len(expectedReturnTypes) {
-						return fmt.Errorf("%w: expected %d return values, got %d", engine.ErrReturnShape, len(expectedReturnTypes), len(row.Values))
+				// we will ensure that the return values match the expected return types
+				if len(row.Values) != len(expectedReturnTypes) {
+					return fmt.Errorf("%w: expected %d return values, got %d", engine.ErrReturnShape, len(expectedReturnTypes), len(row.Values))
+				}
+
+				// we will iterate over and check it is of the correct type.
+				// We will also type cast it to the correct type, to ensure we maintain precision and scale,
+				// and account for any nulls
+				for i, val := range row.Values {
+					// only equals, not equals strict, because we want to accept
+					// nulls.
+					if !val.Type().Equals(expectedReturnTypes[i]) {
+						return fmt.Errorf("%w: expected return value %d to be %s, got %s", engine.ErrType, i+1, expectedReturnTypes[i], val.Type())
 					}
 
-					// we will iterate over and check it is of the correct type.
-					// We will also type cast it to the correct type, to ensure we maintain precision and scale,
-					// and account for any nulls
-					for i, val := range row.Values {
-						// only equals, not equals strict, because we want to accept
-						// nulls.
-						if !val.Type().Equals(expectedReturnTypes[i]) {
-							return fmt.Errorf("%w: expected return value %d to be %s, got %s", engine.ErrType, i+1, expectedReturnTypes[i], val.Type())
-						}
-
-						row.Values[i], err = val.Cast(expectedReturnTypes[i])
-						if err != nil {
-							return err
-						}
-					}
-
-					err := fn(row)
+					row.Values[i], err = val.Cast(expectedReturnTypes[i])
 					if err != nil {
 						return err
 					}
+				}
 
-					return nil
-				})
+				return fn(row)
+			}
+
+			// execute the statements
+			for _, stmt := range stmtFns {
+				err := stmt(exec2, rowFn) // exec2.query(someSqlFromStmtFunc, rowFn)
 				switch err {
 				case nil:
 					// do nothing

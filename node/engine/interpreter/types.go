@@ -27,6 +27,8 @@ type action struct {
 
 	// Returns specifies the return types of the action.
 	Returns *actionReturn `json:"return_types"`
+
+	ast *parse.CreateActionStatement
 }
 
 func (a *action) GetName() string {
@@ -74,6 +76,8 @@ func (a *action) FromAST(ast *parse.CreateActionStatement) error {
 	if !hasPublicPrivateOrSystem {
 		return fmt.Errorf(`one of PUBLIC, PRIVATE, or SYSTEM access modifier is required. received: "%s"`, strings.Join(ast.Modifiers, ", "))
 	}
+
+	a.ast = ast
 
 	return nil
 }
