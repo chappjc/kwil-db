@@ -54,6 +54,10 @@ func (c *Client) SvcClient() user.TxSvcClient {
 	return c.txClient
 }
 
+func (c *Client) ChainClient() chainrpc.Client {
+	return c.txClient
+}
+
 var _ clientType.Client = (*Client)(nil)
 
 // NewClient creates a Kwil client. The target should be a URL (for an

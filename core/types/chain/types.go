@@ -54,6 +54,8 @@ type BlockResult struct {
 	TxResults []types.TxResult `json:"tx_results"`
 }
 
+// type CommitInfo struct{} // dammit
+
 type Genesis struct {
 	ChainID string `json:"chain_id"`
 	// Leader is the leader's public key.

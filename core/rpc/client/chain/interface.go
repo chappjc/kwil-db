@@ -11,6 +11,8 @@ type Client interface {
 	Version(ctx context.Context) (string, error)
 	BlockByHeight(ctx context.Context, height int64) (*chaintypes.Block, error)
 	BlockByHash(ctx context.Context, hash types.Hash) (*chaintypes.Block, error)
+	// CommitByHeight(ctx context.Context, height int64) (*chaintypes.CommitInfo, error)
+	// CommitByHash(ctx context.Context, hash types.Hash) (*chaintypes.CommitInfo, error)
 	BlockResultByHeight(ctx context.Context, height int64) (*chaintypes.BlockResult, error)
 	BlockResultByHash(ctx context.Context, hash types.Hash) (*chaintypes.BlockResult, error)
 	Tx(ctx context.Context, hash types.Hash) (*chaintypes.Tx, error)

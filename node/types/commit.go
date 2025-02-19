@@ -3,6 +3,8 @@ package types
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -27,10 +29,10 @@ type NodeStatus struct {
 // CommitInfo includes the information about the commit of the block.
 // Such as the signatures of the validators aggreeing to the block.
 type CommitInfo struct {
-	AppHash          Hash
-	Votes            []*VoteInfo
-	ParamUpdates     types.ParamUpdates
-	ValidatorUpdates []*types.Validator
+	AppHash          Hash               `json:"app_hash"`
+	Votes            []*VoteInfo        `json:"votes"`
+	ParamUpdates     types.ParamUpdates `json:"param_updates"`
+	ValidatorUpdates []*types.Validator `json:"validator_updates"`
 }
 
 type AckStatus int
@@ -83,15 +85,15 @@ func (ack AckStatus) WasAck() bool {
 // committed block state was agreed upon by the majority of the validators from the validator set.
 type VoteInfo struct {
 	// VoteSignature is the signature of the blkHash + nack | blkHash + ack + appHash
-	Signature Signature
+	Signature Signature `json:"vote_signature"`
 
 	// Ack is set to true if the validator agrees with the block
 	// in terms of the AppHash, ValidatorSet, MerkleRoot of Txs etc.
-	AckStatus AckStatus
+	AckStatus AckStatus `json:"ack_status"`
 	// AppHash is optional, it set only if the AckStatus is AckStatusDivereged.
 	// AppHash is implied to be the AppHash in the CommitInfo if the AckStatus is AckStatusAgree.
 	// AppHash is nil if the AckStatus is AckStatusDisagree.
-	AppHash *Hash
+	AppHash *Hash `json:"app_hash"`
 }
 
 type Signature struct {
@@ -99,6 +101,48 @@ type Signature struct {
 	PubKey     []byte // public key of the validator
 
 	Data []byte
+}
+
+func (sig Signature) MarshalJSON() ([]byte, error) {
+	type sigJSON struct {
+		PubKeyType string `json:"key_type"`
+		PubKey     string `json:"key"`
+		Data       string `json:"sig"`
+	}
+	return json.Marshal(sigJSON{
+		PubKeyType: sig.PubKeyType.String(),
+		PubKey:     hex.EncodeToString(sig.PubKey),
+		Data:       hex.EncodeToString(sig.Data),
+	})
+}
+
+// UnmarshalJSON
+func (sig *Signature) UnmarshalJSON(data []byte) error {
+	type sigJSON struct {
+		PubKeyType string `json:"key_type"`
+		PubKey     string `json:"key"`
+		Data       string `json:"sig"`
+	}
+	var s sigJSON
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	var err error
+	sig.PubKeyType, err = crypto.ParseKeyType(s.PubKeyType)
+	if err != nil {
+		return err
+	}
+	sig.PubKey, err = hex.DecodeString(s.PubKey)
+	if err != nil {
+		return err
+	}
+	dat, err := hex.DecodeString(s.Data)
+	if err != nil {
+		return err
+	}
+	sig.Data = dat
+	return nil
+
 }
 
 func (sig *Signature) Bytes() []byte {
