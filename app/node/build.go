@@ -53,7 +53,9 @@ func buildServer(ctx context.Context, d *coreDependencies) *server {
 	d.closers = closers
 
 	// verify dependencies
-	verifyDependencies(d)
+	if !d.cfg.SkipDependencyVerification {
+		verifyDependencies(d)
+	}
 
 	// BlockStore
 	bs := buildBlockStore(d, closers)

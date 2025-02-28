@@ -339,6 +339,8 @@ type Config struct {
 
 	Telemetry Telemetry `toml:"telemetry" comment:"telemetry (metrics and traces) configuration"`
 
+	SkipDependencyVerification bool `toml:"no_dep_checks" comment:"skip runtime dependency verification (the pg_dump and psql binaries)"`
+
 	P2P          PeerConfig                   `toml:"p2p" comment:"P2P related configuration"`
 	Consensus    ConsensusConfig              `toml:"consensus" comment:"Consensus related configuration"`
 	Mempool      MempoolConfig                `toml:"mempool" comment:"Mempool related configuration"`
